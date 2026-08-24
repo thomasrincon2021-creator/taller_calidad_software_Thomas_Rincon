@@ -1,4 +1,4 @@
-package com.nowstyle.taller_calidad_backend.controlador;
+package com.nowstyle.taller_calidad_backend.controller;
 
 import com.nowstyle.taller_calidad_backend.model.Usuario;
 import com.nowstyle.taller_calidad_backend.repository.UsuarioRepository;

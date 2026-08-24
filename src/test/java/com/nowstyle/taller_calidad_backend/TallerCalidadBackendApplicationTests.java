@@ -8,6 +8,7 @@ class TallerCalidadBackendApplicationTests {
 
 	@Test
 	void contextLoads() {
+		// Este test valida que el contexto de la aplicación Spring Boot cargue correctamente sin errores.
 	}
 
 }

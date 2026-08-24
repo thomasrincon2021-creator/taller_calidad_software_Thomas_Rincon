@@ -1,4 +1,4 @@
-package com.nowstyle.taller_calidad_backend.modelo;
+package com.nowstyle.taller_calidad_backend.model;
 
 import jakarta.persistence.*;
 

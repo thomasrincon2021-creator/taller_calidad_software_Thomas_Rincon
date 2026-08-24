@@ -1,4 +1,4 @@
-package com.nowstyle.taller_calidad_backend.repositorio;
+package com.nowstyle.taller_calidad_backend.repository;
 
 import com.nowstyle.taller_calidad_backend.modelo.Producto;
 import org.springframework.data.jpa.repository.JpaRepository;
