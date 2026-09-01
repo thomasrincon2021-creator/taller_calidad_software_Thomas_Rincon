@@ -20,7 +20,7 @@ export default function Login() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: identificador, // El backend procesa correo o usuario
+          email: identificador,
           password
         }),
       });
@@ -39,6 +39,11 @@ export default function Login() {
 
         if (usuarioLogueado.id) {
           localStorage.setItem('usuarioId', usuarioLogueado.id);
+        }
+
+        // GUARDAR FOTO EN LOCALSTORAGE SI EXISTE EN LA RESPUESTA
+        if (usuarioLogueado.foto) {
+          localStorage.setItem('usuarioFoto', usuarioLogueado.foto);
         }
 
         // 3. Redirigir al catálogo

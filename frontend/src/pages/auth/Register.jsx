@@ -68,7 +68,6 @@ export default function Register() {
       });
 
       if (response.ok) {
-        alert('¡Registro y verificación exitosos!');
         navigate('/login');
       } else {
         const errorData = await response.text();

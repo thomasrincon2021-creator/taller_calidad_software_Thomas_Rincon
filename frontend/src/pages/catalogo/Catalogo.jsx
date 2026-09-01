@@ -82,32 +82,39 @@ export default function Catalogo() {
     };
 
     const handleGuardarSoloFoto = async () => {
-        const usuarioId = localStorage.getItem('usuarioId');
-        
-        try {
-            localStorage.setItem('usuarioFoto', tempFoto);
-        } catch (err) {
-            console.error("No se pudo guardar la foto en LocalStorage:", err);
-        }
-        setFotoPerfil(tempFoto);
+    const usuarioId = localStorage.getItem('usuarioId');
+    if (!usuarioId) {
+        alert("No se encontró el ID de usuario.");
+        return;
+    }
 
-        try {
-            await fetch(`http://localhost:8080/api/usuarios/${usuarioId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    usuario: nombreUsuario,
-                    email: emailUsuario,
-                    telefono: telefonoUsuario,
-                    foto: tempFoto
-                })
-            });
-        } catch (err) {
-            console.error("Error al actualizar la foto en la BD:", err);
-        } finally {
+    try {
+        const response = await fetch(`http://localhost:8080/api/usuarios/${usuarioId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                usuario: nombreUsuario,
+                email: emailUsuario,
+                telefono: telefonoUsuario,
+                foto: tempFoto // String Base64 completo
+            })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            const fotoGuardada = data.foto || tempFoto;
+            
+            // Actualizar estados locales y LocalStorage
+            setFotoPerfil(fotoGuardada);
+            localStorage.setItem('usuarioFoto', fotoGuardada);
             setFotoNuevaSeleccionada(false);
+        } else {
+            console.error("Error al actualizar la foto en el servidor.");
         }
-    };
+    } catch (err) {
+        console.error("Error de red al guardar la foto:", err);
+    }
+};
 
     const handleGuardarPerfil = async (e) => {
         e.preventDefault();
@@ -174,7 +181,7 @@ export default function Catalogo() {
     };
 
     const obtenerTallasDisponibles = (tallasStockStr) => {
-        if (!tallasStockStr) return [];
+        if (!tallasStockStr || typeof tallasStockStr !== 'string') return [];
         return tallasStockStr
             .split(',')
             .map(item => item.split(':')[0].trim())
@@ -204,37 +211,60 @@ export default function Catalogo() {
     };
 
     const agregarAlCarrito = (producto) => {
-        const tallasDisponibles = obtenerTallasDisponibles(producto.tallasStock);
-        const talla = tallasSeleccionadas[producto.id] || (tallasDisponibles.length > 0 ? tallasDisponibles[0] : 'Agotado');
-        const cartItemId = `${producto.id}-${talla}`;
+    if (!producto) return;
 
-        const existente = carrito.find(item => item.cartItemId === cartItemId);
+    // Detecta si la propiedad id viene con id, idProducto o _id
+    const prodId = producto.id || producto.idProducto || producto._id;
+    if (!prodId) {
+        console.error("El producto no tiene un ID válido:", producto);
+        return;
+    }
+
+    const tallasDisponibles = obtenerTallasDisponibles(producto.tallasStock);
+    const talla = (tallasSeleccionadas && tallasSeleccionadas[prodId]) 
+        || (tallasDisponibles.length > 0 ? tallasDisponibles[0] : 'Única');
+
+    const cartItemId = `${prodId}-${talla}`;
+
+    setCarrito(prevCarrito => {
+        const existente = prevCarrito.find(item => item && item.cartItemId === cartItemId);
         if (existente) {
-            setCarrito(carrito.map(item => item.cartItemId === cartItemId ? { ...item, cantidad: item.cantidad + 1 } : item));
-        } else {
-            setCarrito([...carrito, { 
-                cartItemId, 
-                id: producto.id, 
-                nombre: producto.nombre, 
-                precio: producto.precio, 
-                categoria: producto.categoria || '', 
-                cantidad: 1, 
-                talla, 
-                estampado: null 
-            }]);
+            return prevCarrito.map(item => 
+                item.cartItemId === cartItemId 
+                    ? { ...item, cantidad: item.cantidad + 1 } 
+                    : item
+            );
         }
-        setCarritoAbierto(true);
-    };
+        
+        return [...prevCarrito, { 
+            cartItemId, 
+            id: prodId, 
+            nombre: producto.nombre || 'Producto sin nombre', 
+            precio: Number(producto.precio) || 0, 
+            categoria: producto.categoria || '', 
+            cantidad: 1, 
+            talla: talla, 
+            estampado: producto.estampado || null 
+        }];
+    });
 
-    const cambiarCantidad = (cartItemId, delta) => {
-        setCarrito(carrito.map(item => {
-            if (item.cartItemId === cartItemId) {
-                const nuevaCant = item.cantidad + delta;
-                return nuevaCant > 0 ? { ...item, cantidad: nuevaCant } : null;
-            }
-            return item;
-        }).filter(Boolean));
-    };
+    setCarritoAbierto(true);
+};
+
+const cambiarCantidad = (cartItemId, delta) => {
+    setCarrito(prevCarrito => {
+        if (!Array.isArray(prevCarrito)) return [];
+        return prevCarrito
+            .map(item => {
+                if (item && item.cartItemId === cartItemId) {
+                    const nuevaCant = (Number(item.cantidad) || 1) + delta;
+                    return nuevaCant > 0 ? { ...item, cantidad: nuevaCant } : null;
+                }
+                return item;
+            })
+            .filter(Boolean);
+    });
+};
 
     const eliminarDelCarrito = (cartItemId) => {
         setCarrito(carrito.filter(item => item.cartItemId !== cartItemId));
@@ -253,6 +283,128 @@ export default function Catalogo() {
             setMensajeCupon({ texto: "Cupón inválido o expirado.", color: "#ef4444" });
         }
     };
+const finalizarCompra = async () => {
+  try {
+    const response = await fetch('http://localhost:8080/api/pagos/crear-preferencia', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        items: carrito, // Arreglo de productos [{ nombre, cantidad, precio }]
+        costoEnvio: 6000,
+        ciudadEnvio: 'Bogotá'
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Error al generar el pago');
+    }
+
+    const data = await response.json();
+
+    // Redirección directa al checkout de Mercado Pago
+    if (data.initPoint) {
+      window.location.href = data.initPoint;
+    }
+  } catch (error) {
+    console.error('Error al procesar la compra:', error);
+    alert('No se pudo conectar con el servidor de pagos.');
+  }
+
+
+    if (!direccion.trim()) {
+        alert("Por favor ingresa tu dirección de envío.");
+        return;
+    }
+
+    const pedidoPayload = {
+        ciudadEnvio: ciudadEnvio === 'bogota' ? 'Bogotá' : 'Otras ciudades',
+        costoEnvio: costoEnvio,
+        items: carrito.map(item => {
+            const precioBase = Number(item.precio) || 0;
+            const extraEstampado = item.estampado && item.estampado.costoExtra ? Number(item.estampado.costoExtra) : 0;
+            return {
+                nombre: `${item.nombre} (Talla: ${item.talla})`,
+                cantidad: item.cantidad,
+                precio: precioBase + extraEstampado
+            };
+        })
+    };
+
+    try {
+        const response = await fetch('http://localhost:8080/api/pagos/crear-preferencia', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(pedidoPayload)
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            if (data.initPoint) {
+                window.location.href = data.initPoint;
+            } else {
+                alert("No se pudo obtener la URL de pago.");
+            }
+        } else {
+            const errorData = await response.text();
+            alert(`Error al procesar el pago: ${errorData || 'Intenta nuevamente'}`);
+        }
+    } catch (error) {
+        console.error("Error conectando con la pasarela de pagos:", error);
+        alert("No se pudo conectar con el servidor de pagos.");
+    }
+
+
+    if (!direccion.trim()) {
+        alert("Por favor ingresa la dirección de envío.");
+        return;
+    }
+
+    // Estructurar los ítems en el formato que espera CartItemDTO / Backend
+    const ordenDTO = {
+        usuarioEmail: emailUsuario,
+        direccionEnvio: direccion,
+        ciudadEnvio: ciudadEnvio,
+        subtotal: subtotal,
+        descuento: valorDescuento,
+        costoEnvio: costoEnvio,
+        total: totalFinal,
+        items: carrito.map(item => ({
+            productoId: item.id,
+            nombre: item.nombre,
+            cantidad: item.cantidad,
+            talla: item.talla,
+            precioUnitario: item.precio
+        }))
+    };
+
+    try {
+        const response = await fetch('http://localhost:8080/api/pagos/crear-preferencia', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(ordenDTO)
+        });
+
+        if (!response.ok) {
+            throw new Error('Error en el servidor al generar la preferencia de pago');
+        }
+
+        const data = await response.json();
+
+        if (data.initPoint) {
+            window.location.href = data.initPoint;
+        }
+    } catch (error) {
+        console.error('Error al procesar la compra:', error);
+        alert('No se pudo conectar con el servidor de pagos.');
+    }
+};
 
     const productosFiltrados = productos.filter(p => {
         if (categoriasSeleccionadas.length === 0) return true;
@@ -265,9 +417,12 @@ export default function Catalogo() {
     });
 
     const subtotal = carrito.reduce((acc, item) => {
-        const extraEstampado = item.estampado ? item.estampado.costoExtra : 0;
-        return acc + (item.precio + extraEstampado) * item.cantidad;
-    }, 0);
+    if (!item) return acc;
+    const precioBase = Number(item.precio) || 0;
+    const extraEstampado = item.estampado && item.estampado.costoExtra ? Number(item.estampado.costoExtra) : 0;
+    const cantidadItem = Number(item.cantidad) || 1;
+    return acc + (precioBase + extraEstampado) * cantidadItem;
+}, 0);
 
     const valorDescuento = subtotal * descuento;
     const costoEnvio = subtotal > 0 ? (ciudadEnvio === 'bogota' ? 6000 : 12000) : 0;
@@ -298,8 +453,8 @@ export default function Catalogo() {
                         )}
 
                         <button onClick={toggleCarrito} style={{ backgroundColor: '#000000', border: '1px solid #27272a', color: 'white', padding: '0.6rem 1rem', borderRadius: '0.6rem', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
-                            🛒 Carrito (<span style={{ color: '#dc2626' }}>{carrito.reduce((acc, i) => acc + i.cantidad, 0)}</span>)
-                        </button>
+    🛒 Carrito (<span style={{ color: '#dc2626' }}>{carrito.reduce((acc, i) => acc + (Number(i?.cantidad) || 0), 0)}</span>)
+</button>
 
                         <div 
                             onClick={togglePerfil} 
@@ -483,7 +638,6 @@ export default function Catalogo() {
                 )}
             </div>
 
-            {/* PANEL LATERAL DE CARRITO */}
             <div style={{ 
                 position: 'fixed', top: 0, right: carritoAbierto ? '0' : '-450px', 
                 width: '400px', height: '100vh', backgroundColor: '#09090b', 
@@ -560,7 +714,11 @@ export default function Catalogo() {
                             </div>
                         </div>
 
-                        <button style={{ width: '100%', backgroundColor: '#dc2626', color: 'white', border: 'none', padding: '0.8rem', borderRadius: '0.6rem', fontWeight: 900, textTransform: 'uppercase', cursor: 'pointer', marginTop: '0.5rem', fontSize: '0.9rem' }} onClick={() => alert('¡Gracias por tu compra en NowStyle!')}>
+                        {/* AQUÍ ESTÁ EL CAMBIO EN EL ONCLICK */}
+                        <button 
+                            style={{ width: '100%', backgroundColor: '#dc2626', color: 'white', border: 'none', padding: '0.8rem', borderRadius: '0.6rem', fontWeight: 900, textTransform: 'uppercase', cursor: 'pointer', marginTop: '0.5rem', fontSize: '0.9rem' }} 
+                            onClick={finalizarCompra}
+                        >
                             Finalizar Compra
                         </button>
                     </div>
