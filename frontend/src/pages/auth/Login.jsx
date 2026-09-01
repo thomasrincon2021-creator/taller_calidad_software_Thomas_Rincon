@@ -5,6 +5,7 @@ import '../../App.css';
 export default function Login() {
   const [identificador, setIdentificador] = useState('');
   const [password, setPassword] = useState('');
+  const [mostrarPassword, setMostrarPassword] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
@@ -19,7 +20,7 @@ export default function Login() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: identificador, // El backend lo busca por correo o por usuario
+          email: identificador, // El backend procesa correo o usuario
           password
         }),
       });
@@ -27,13 +28,22 @@ export default function Login() {
       if (response.ok) {
         const usuarioLogueado = await response.json();
         
-        // 1. Guardamos los datos clave en el localStorage
-        localStorage.setItem('usuarioRol', usuarioLogueado.rol); // Asumiendo que tu objeto de usuario devuelve una propiedad 'rol'
-        localStorage.setItem('usuarioNombre', usuarioLogueado.nombre || '');
-        
-        // 2. Redirigimos al catálogo
+        // 1. Limpiar rastro de sesiones previas
+        localStorage.clear();
+
+        // 2. Mapear exacto con los nombres de atributo de la entidad Usuario (Java)
+        localStorage.setItem('usuarioRol', usuarioLogueado.rol || 'CLIENTE');
+        localStorage.setItem('usuarioNombre', usuarioLogueado.usuario || usuarioLogueado.email || 'Usuario');
+        localStorage.setItem('usuarioEmail', usuarioLogueado.email || identificador);
+        localStorage.setItem('usuarioTelefono', usuarioLogueado.telefono || 'No registrado');
+
+        if (usuarioLogueado.id) {
+          localStorage.setItem('usuarioId', usuarioLogueado.id);
+        }
+
+        // 3. Redirigir al catálogo
         navigate('/catalogo');
-      }else {
+      } else {
         const errorMsg = await response.text();
         setError(errorMsg || 'Credenciales incorrectas.');
       }
@@ -74,13 +84,23 @@ export default function Login() {
 
           <div className="auth-group">
             <label>Contraseña</label>
-            <input 
-              type="password" 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)} 
-              required
-              placeholder="••••••••"
-            />
+            <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '0.5rem', overflow: 'hidden' }}>
+              <input 
+                type={mostrarPassword ? "text" : "password"} 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                required
+                placeholder="••••••••"
+                style={{ width: '100%', padding: '0.75rem 1rem', backgroundColor: 'transparent', border: 'none', color: '#ffffff', outline: 'none' }}
+              />
+              <button
+                type="button"
+                onClick={() => setMostrarPassword(!mostrarPassword)}
+                style={{ background: 'none', border: 'none', color: '#a1a1aa', padding: '0 0.75rem', cursor: 'pointer', fontSize: '0.85rem' }}
+              >
+                {mostrarPassword ? 'Ocultar' : 'Mostrar'}
+              </button>
+            </div>
           </div>
 
           <button type="submit" className="auth-button">

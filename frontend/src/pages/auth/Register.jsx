@@ -8,6 +8,9 @@ export default function Register() {
   const [telefono, setTelefono] = useState('');
   const [password, setPassword] = useState('');
   
+  // Estado para controlar la visibilidad de la contraseña
+  const [mostrarPassword, setMostrarPassword] = useState(false);
+
   // Estados para controlar el paso del código de verificación
   const [pasoVerificacion, setPasoVerificacion] = useState(false);
   const [codigoIngresado, setCodigoIngresado] = useState('');
@@ -35,7 +38,6 @@ export default function Register() {
       });
 
       if (response.ok) {
-        // Pasamos a la pantalla de ingresar el código
         setPasoVerificacion(true);
       } else {
         const errorData = await response.text();
@@ -116,7 +118,23 @@ export default function Register() {
 
             <div className="auth-group">
               <label>Contraseña</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="Mínimo 8 caracteres" />
+              <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '0.5rem', overflow: 'hidden' }}>
+                <input 
+                  type={mostrarPassword ? "text" : "password"} 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)} 
+                  required 
+                  placeholder="Mínimo 8 caracteres" 
+                  style={{ width: '100%', padding: '0.75rem 1rem', backgroundColor: 'transparent', border: 'none', color: '#ffffff', outline: 'none' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setMostrarPassword(!mostrarPassword)}
+                  style={{ background: 'none', border: 'none', color: '#a1a1aa', padding: '0 0.75rem', cursor: 'pointer', fontSize: '0.85rem' }}
+                >
+                  {mostrarPassword ? 'Ocultar' : 'Mostrar'}
+                </button>
+              </div>
             </div>
 
             <button type="submit" className="auth-button">Continuar y Verificar</button>

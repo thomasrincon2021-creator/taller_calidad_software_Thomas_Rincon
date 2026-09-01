@@ -18,10 +18,15 @@ public class Usuario {
     // Se asigna "CLIENTE" por defecto al crear la instancia
     private String rol = "CLIENTE";
 
+    // Campo para guardar la imagen (soporta Base64 largo)
+    @Lob
+    @Column(name = "foto", columnDefinition = "LONGTEXT")
+    private String foto;
+
     // Constructores
     public Usuario() {}
 
-    // Constructor sin especificar rol (asume CLIENTE por defecto)
+    // Constructor sin especificar rol
     public Usuario(String usuario, String email, String telefono, String password) {
         this.usuario = usuario;
         this.email = email;
@@ -30,13 +35,14 @@ public class Usuario {
         this.rol = "CLIENTE";
     }
 
-    // Constructor completo por si alguna vez quieres crear un ADMIN manualmente desde el backend
-    public Usuario(String usuario, String email, String telefono, String password, String rol) {
+    // Constructor completo con rol y foto
+    public Usuario(String usuario, String email, String telefono, String password, String rol, String foto) {
         this.usuario = usuario;
         this.email = email;
         this.telefono = telefono;
         this.password = password;
         this.rol = (rol != null && !rol.isBlank()) ? rol : "CLIENTE";
+        this.foto = foto;
     }
 
     // Getters y Setters
@@ -57,4 +63,7 @@ public class Usuario {
 
     public String getRol() { return rol; }
     public void setRol(String rol) { this.rol = rol; }
+
+    public String getFoto() { return foto; }
+    public void setFoto(String foto) { this.foto = foto; }
 }

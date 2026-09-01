@@ -21,6 +21,16 @@ public class UsuarioController {
     @Autowired
     private EmailService emailService;
 
+    // Obtener un usuario por ID (para actualizar el frontend al cargar la app)
+    @GetMapping("/{id}")
+    public ResponseEntity<?> obtenerUsuarioPorId(@PathVariable Long id) {
+        Optional<Usuario> usuarioOpt = usuarioRepository.findById(id);
+        if (!usuarioOpt.isPresent()) {
+            return ResponseEntity.status(404).body("Usuario no encontrado.");
+        }
+        return ResponseEntity.ok(usuarioOpt.get());
+    }
+
     // Paso 1: Valida los datos y genera el código de verificación en la consola de Java
     @PostMapping("/registro")
     public ResponseEntity<?> registrarUsuario(@RequestBody Usuario usuario) {
@@ -32,7 +42,7 @@ public class UsuarioController {
         
         // Validar correo gmail estricto
         if (usuario.getEmail() == null || !usuario.getEmail().toLowerCase().endsWith("@gmail.com")) {
-            return ResponseEntity.badRequest().body("El correo debe ser estrictamente una cuenta @gmail.com.");
+            return ResponseEntity.badRequest().body("El correo debe ser strictly una cuenta @gmail.com.");
         }
 
         String usernameEmail = usuario.getEmail().toLowerCase().split("@")[0];
@@ -98,9 +108,8 @@ public class UsuarioController {
         return ResponseEntity.status(401).body("Credenciales incorrectas (Usuario o contraseña inválidos).");
     }
 
-    // --- NUEVOS ENDPOINTS PARA RECUPERACIÓN DE CONTRASEÑA ---
+    // --- ENDPOINTS PARA RECUPERACIÓN DE CONTRASEÑA ---
 
-    // Paso 1 de recuperación: Recibe el correo, verifica si existe y le envía el código
     @PostMapping("/recuperar-password")
     public ResponseEntity<?> solicitarRecuperacion(@RequestBody Map<String, String> request) {
         String email = request.get("email");
@@ -122,7 +131,6 @@ public class UsuarioController {
         }
     }
 
-    // Paso 2 de recuperación: Valida el código y actualiza la contraseña en la base de datos
     @PostMapping("/actualizar-password")
     public ResponseEntity<?> actualizarPassword(@RequestBody Map<String, String> request) {
         String email = request.get("email");
@@ -133,7 +141,6 @@ public class UsuarioController {
             return ResponseEntity.badRequest().body("La nueva contraseña debe tener al menos 8 caracteres.");
         }
 
-        // Valida y remueve el código guardado temporalmente
         boolean codigoValido = emailService.validarCodigo(email, codigo);
         if (!codigoValido) {
             return ResponseEntity.status(400).body("Código de verificación incorrecto o expirado.");
@@ -149,5 +156,34 @@ public class UsuarioController {
         usuarioRepository.save(usuario);
 
         return ResponseEntity.ok(Map.of("message", "Contraseña actualizada exitosamente."));
+    }
+
+    // Endpoint para actualizar datos del perfil (incluye la foto en Base64)
+    @PutMapping("/{id}")
+    public ResponseEntity<?> actualizarPerfil(@PathVariable Long id, @RequestBody Usuario datosActualizados) {
+        Optional<Usuario> usuarioOpt = usuarioRepository.findById(id);
+        
+        if (!usuarioOpt.isPresent()) {
+            return ResponseEntity.status(404).body("Usuario no encontrado.");
+        }
+
+        Usuario usuario = usuarioOpt.get();
+        
+        if (datosActualizados.getUsuario() != null && !datosActualizados.getUsuario().isBlank()) {
+            usuario.setUsuario(datosActualizados.getUsuario());
+        }
+        if (datosActualizados.getEmail() != null && !datosActualizados.getEmail().isBlank()) {
+            usuario.setEmail(datosActualizados.getEmail());
+        }
+        if (datosActualizados.getTelefono() != null && !datosActualizados.getTelefono().isBlank()) {
+            usuario.setTelefono(datosActualizados.getTelefono());
+        }
+        // Actualizar el campo foto si viene en la petición
+        if (datosActualizados.getFoto() != null) {
+            usuario.setFoto(datosActualizados.getFoto());
+        }
+
+        Usuario guardado = usuarioRepository.save(usuario);
+        return ResponseEntity.ok(guardado);
     }
 }
