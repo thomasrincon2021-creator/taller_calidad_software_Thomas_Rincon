@@ -9,6 +9,8 @@ import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import Catalogo from "./pages/catalogo/Catalogo";
+import Reportes from "./pages/catalogo/Reportes";
+import PersonalizarEstampado from "./pages/catalogo/PersonalizarEstampado";
 
 export default function App() {
   return (
@@ -19,6 +21,12 @@ export default function App() {
         
         {/* Catálogo / Tienda */}
         <Route path="/catalogo" element={<Catalogo />} />
+        
+        {/* Personalizar Estampado */}
+        <Route path="/personalizar-estampado" element={<PersonalizarEstampado />} />
+        
+        {/* Reportes / Historial de Pedidos */}
+        <Route path="/historial-pedidos" element={<Reportes />} />
         
         {/* Autenticación */}
         <Route path="/login" element={<Login />} />

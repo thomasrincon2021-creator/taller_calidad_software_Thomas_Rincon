@@ -21,7 +21,7 @@ public class Usuario {
     // Campo para guardar la imagen (soporta Base64 largo)
     @Lob
     @Column(name = "foto", columnDefinition = "LONGTEXT")
-    private String foto;
+    private String foto;    
 
     // Constructores
     public Usuario() {}

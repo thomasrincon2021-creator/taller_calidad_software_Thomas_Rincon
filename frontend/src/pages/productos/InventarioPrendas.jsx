@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../../App.css';
 
+const TALLAS_DISPONIBLES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
+
 export default function InventarioPrendas() {
   const navigate = useNavigate();
   const [productos, setProductos] = useState([]);
@@ -20,9 +22,30 @@ export default function InventarioPrendas() {
   const [editCategoria, setEditCategoria] = useState('');
   const [editColor, setEditColor] = useState('');
   const [editPrecio, setEditPrecio] = useState('');
-  const [editTallasStock, setEditTallasStock] = useState('');
+  const [editTallas, setEditTallas] = useState({}); // Objeto para tallas { "M": 1, "L": 2 }
   const [editImagenBase64, setEditImagenBase64] = useState('');
   const [editNombreArchivo, setEditNombreArchivo] = useState('');
+
+  // Convierte "M: 1, L: 2" a un objeto { M: 1, L: 2 }
+  const parsearTallasAObjeto = (strTallas) => {
+    if (!strTallas) return {};
+    const resultado = {};
+    const pares = strTallas.split(',');
+    pares.forEach(par => {
+      const [talla, cantidad] = par.split(':');
+      if (talla && cantidad !== undefined) {
+        resultado[talla.trim()] = parseInt(cantidad.trim(), 10) || 0;
+      }
+    });
+    return resultado;
+  };
+
+  // Convierte el objeto { M: 1, L: 2 } al formato string "M: 1, L: 2" para la BD
+  const convertirTallasAString = (objTallas) => {
+    return Object.entries(objTallas)
+      .map(([talla, cantidad]) => `${talla}: ${cantidad}`)
+      .join(', ');
+  };
 
   const cargarProductos = () => {
     fetch('http://localhost:8080/api/productos')
@@ -41,7 +64,7 @@ export default function InventarioPrendas() {
     cargarProductos();
   }, []);
 
-  // Abrir modal con los datos cargados
+  // Abrir modal con los datos cargados y tallas parseadas
   const abrirEditar = (prod) => {
     setProductoEditar(prod);
     setEditNombre(prod.nombre || '');
@@ -49,10 +72,40 @@ export default function InventarioPrendas() {
     setEditCategoria(prod.categoria || 'Camisetas');
     setEditColor(prod.color || '');
     setEditPrecio(prod.precio || '');
-    setEditTallasStock(prod.tallasStock || '');
+    setEditTallas(parsearTallasAObjeto(prod.tallasStock));
     setEditImagenBase64(prod.imagen || '');
     setEditNombreArchivo('');
   };
+
+  const handleTallaToggle = (talla) => {
+    setEditTallas(prev => {
+      const nuevasTallas = { ...prev };
+      if (nuevasTallas.hasOwnProperty(talla)) {
+        delete nuevasTallas[talla];
+      } else {
+        nuevasTallas[talla] = 1;
+      }
+      return nuevasTallas;
+    });
+  };
+
+const handleStockChange = (talla, valor) => {
+  // Si el campo se borra por completo, dejamos cadena vacía temporalmente
+  if (valor === '') {
+    setEditTallas(prev => ({
+      ...prev,
+      [talla]: ''
+    }));
+    return;
+  }
+
+  // Si se ingresa un número, parseamos como entero sin permitir negativos
+  const cantidad = Math.max(0, parseInt(valor, 10) || 0);
+  setEditTallas(prev => ({
+    ...prev,
+    [talla]: cantidad
+  }));
+};
 
   // Manejar cambio de imagen en la edición
   const handleEditImagenChange = (e) => {
@@ -93,7 +146,7 @@ export default function InventarioPrendas() {
       categoria: editCategoria,
       color: editColor.trim(),
       precio: precioNum,
-      tallasStock: editTallasStock.trim(),
+      tallasStock: convertirTallasAString(editTallas),
       imagen: editImagenBase64
     };
 
@@ -252,7 +305,7 @@ export default function InventarioPrendas() {
         )}
       </main>
 
-      {/* MODAL PARA ACTUALIZAR PRENDA (CON EDICIÓN DE FOTO) */}
+      {/* MODAL PARA ACTUALIZAR PRENDA (NUEVA INTERFAZ DE TALLAS) */}
       {productoEditar && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 999 }}>
           <div style={{ backgroundColor: '#09090b', border: '1px solid #27272a', padding: '2rem', borderRadius: '1rem', width: '90%', maxWidth: '520px', color: '#fff', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -283,10 +336,53 @@ export default function InventarioPrendas() {
                 </div>
               </div>
 
+              {/* SECCIÓN INTERACTIVA DE TALLAS */}
               <div>
-                <label style={{ fontSize: '0.85rem', color: '#a1a1aa' }}>Stock por Tallas (ej: S: 5, M: 10):</label>
-                <input type="text" value={editTallasStock} onChange={e => setEditTallasStock(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.4rem', border: '1px solid #27272a', backgroundColor: '#000', color: '#fff', boxSizing: 'border-box' }} />
+                <label style={{ fontSize: '0.85rem', color: '#a1a1aa', display: 'block', marginBottom: '0.5rem' }}>1. Selecciona las tallas disponibles:</label>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  {TALLAS_DISPONIBLES.map(talla => {
+                    const activa = editTallas.hasOwnProperty(talla);
+                    return (
+                      <button
+                        key={talla}
+                        type="button"
+                        onClick={() => handleTallaToggle(talla)}
+                        style={{
+                          padding: '0.4rem 0.8rem',
+                          borderRadius: '0.4rem',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontWeight: 'bold',
+                          backgroundColor: activa ? '#dc2626' : '#27272a',
+                          color: '#fff'
+                        }}
+                      >
+                        {talla}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
+
+              {Object.keys(editTallas).length > 0 && (
+                <div style={{ backgroundColor: '#000', border: '1px solid #27272a', padding: '1rem', borderRadius: '0.5rem' }}>
+                  <label style={{ fontSize: '0.85rem', color: '#a1a1aa', display: 'block', marginBottom: '0.5rem' }}>2. Ingresa stock por talla:</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
+                    {Object.keys(editTallas).map(talla => (
+                      <div key={talla}>
+                        <label style={{ fontSize: '0.8rem', color: '#fff', display: 'block', marginBottom: '0.2rem' }}>Talla {talla}</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editTallas[talla]}
+                          onChange={e => handleStockChange(talla, e.target.value)}
+                          style={{ width: '100%', padding: '0.4rem', borderRadius: '0.4rem', border: '1px solid #27272a', backgroundColor: '#09090b', color: '#fff', boxSizing: 'border-box' }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label style={{ fontSize: '0.85rem', color: '#a1a1aa' }}>Precio (COP):</label>

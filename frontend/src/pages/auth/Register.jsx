@@ -141,7 +141,7 @@ export default function Register() {
         ) : (
           <form onSubmit={handleVerificarCodigo} className="auth-form">
             <div className="auth-group">
-              <label>Código de Verificación (Revisa la consola de Java)</label>
+              <label>Código de Verificación enviado a tu gmail</label>
               <input type="text" maxLength="6" value={codigoIngresado} onChange={(e) => setCodigoIngresado(e.target.value)} required placeholder="123456" style={{ textAlign: 'center', letterSpacing: '0.2rem', fontSize: '1.2rem' }} />
             </div>
             <button type="submit" className="auth-button">Confirmar Registro</button>

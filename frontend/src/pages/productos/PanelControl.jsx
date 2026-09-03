@@ -32,14 +32,18 @@ export default function PanelControl() {
     productos.map(p => (p.categoria || '').toLowerCase().trim()).filter(Boolean)
   ).size;
 
+  // Lógica de Stock Crítico: Si AL MENOS UNA talla tiene <= 5 unidades
   const productosStockCritico = productos.filter(p => {
-    if (!p.tallasStock) return true;
-    const totalStock = p.tallasStock.split(',').reduce((acc, item) => {
-      const partes = item.split(':');
-      const cant = parseInt(partes[1], 10);
-      return acc + (isNaN(cant) ? 0 : cant);
-    }, 0);
-    return totalStock <= 5;
+    if (!p.tallasStock) return true; // Si no tiene registro de tallas, se considera crítico
+
+    const pares = p.tallasStock.split(',');
+
+    return pares.some(par => {
+      const partes = par.split(':');
+      if (partes.length < 2) return false;
+      const cant = parseInt(partes[1].trim(), 10);
+      return !isNaN(cant) && cant <= 5;
+    });
   });
 
   const descargarReporte = (tipo) => {
@@ -107,7 +111,7 @@ export default function PanelControl() {
 
         </div>
 
-        {/* GESTIÓN OPERATIVA (SOLO 2 BOTONES DIRECTOS Y CLAROS) */}
+        {/* GESTIÓN OPERATIVA */}
         <h3 style={{ textTransform: 'uppercase', fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem', color: '#ffffff' }}>
           Gestión Operativa
         </h3>
@@ -138,7 +142,7 @@ export default function PanelControl() {
 
         </div>
 
-        {/* CENTRO DE REPORTES (CONSERVADO) */}
+        {/* CENTRO DE REPORTES */}
         <div style={{ backgroundColor: '#09090b', border: '1px solid #27272a', borderRadius: '0.75rem', padding: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <div>

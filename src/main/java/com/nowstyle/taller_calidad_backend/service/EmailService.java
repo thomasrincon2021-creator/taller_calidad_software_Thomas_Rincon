@@ -78,7 +78,7 @@ public class EmailService {
                             </div>
 
                             <p style="color: #71717a; font-size: 13px; margin: 0; line-height: 1.4;">
-                                Este código es estrictamente personal y tiene una validez temporal. Si no solicitaste esta acción, puedes ignorar este mensaje.
+                                Este código es strictly personal y tiene una validez temporal. Si no solicitaste esta acción, puedes ignorar este mensaje.
                             </p>
                         </div>
 
@@ -100,9 +100,8 @@ public class EmailService {
             mailSender.send(message);
 
         } catch (Exception e) {
-            System.err.println("Error al enviar correo estilizado: " + e.getMessage());
-            e.printStackTrace();
-            throw new RuntimeException("No se pudo enviar el correo de verificación.");
+            System.err.println("Advertencia: No se pudo enviar el correo físico por un error de red/SSL: " + e.getMessage());
+            System.err.println("El proceso continuará utilizando el código generado en la consola.");
         }
     }
 

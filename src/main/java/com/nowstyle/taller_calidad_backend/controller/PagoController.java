@@ -1,83 +1,67 @@
 package com.nowstyle.taller_calidad_backend.controller;
 
-import com.mercadopago.MercadoPagoConfig;
-import com.mercadopago.client.preference.PreferenceClient;
-import com.mercadopago.client.preference.PreferenceItemRequest;
-import com.mercadopago.client.preference.PreferenceRequest;
-import com.mercadopago.resources.preference.Preference;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
+import com.nowstyle.taller_calidad_backend.model.DetallePedido;
+import com.nowstyle.taller_calidad_backend.model.Pedido;
+import com.nowstyle.taller_calidad_backend.repository.PedidoRepository;
+import com.nowstyle.taller_calidad_backend.dto.OrdenDTO; // Ajusta el paquete según tu estructura
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/pagos")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = "*")
 public class PagoController {
 
-    @Value("${mercadopago.access.token}")
-    private String mpAccessToken;
+    @Autowired
+    private PedidoRepository pedidoRepository;
 
     @PostMapping("/crear-preferencia")
-    public ResponseEntity<?> crearPreferencia(@RequestBody Map<String, Object> pedido) {
+    public ResponseEntity<?> crearPreferencia(@RequestBody OrdenDTO ordenDTO) {
         try {
-            MercadoPagoConfig.setAccessToken(mpAccessToken);
+            // 1. Crear y mapear el pedido desde la petición de React
+            Pedido pedido = new Pedido();
+            pedido.setUsuarioEmail(ordenDTO.getUsuarioEmail());
+            pedido.setDireccionEnvio(ordenDTO.getDireccionEnvio());
+            pedido.setCiudadEnvio(ordenDTO.getCiudadEnvio());
+            pedido.setSubtotal(ordenDTO.getSubtotal());
+            pedido.setDescuento(ordenDTO.getDescuento());
+            pedido.setCostoEnvio(ordenDTO.getCostoEnvio());
+            pedido.setTotal(ordenDTO.getTotal());
+            pedido.setEstado("PENDIENTE");
 
-            List<PreferenceItemRequest> items = new ArrayList<>();
+            // Convertir la lista de items a DetallePedido
+            if (ordenDTO.getItems() != null) {
+                List<DetallePedido> detalles = ordenDTO.getItems().stream().map(item -> {
+                    DetallePedido detalle = new DetallePedido();
+                    detalle.setProductoId(item.getProductoId());
+                    detalle.setNombre(item.getNombre());
+                    detalle.setCantidad(item.getCantidad());
+                    detalle.setTalla(item.getTalla());
+                    detalle.setPrecioUnitario(item.getPrecioUnitario());
+                    return detalle;
+                }).collect(Collectors.toList());
 
-            List<Map<String, Object>> listaItems = (List<Map<String, Object>>) pedido.get("items");
-            if (listaItems != null) {
-                for (Map<String, Object> item : listaItems) {
-                    // Soporta 'precio' o 'precioUnitario' para evitar NullPointerException
-                    Object precioObj = item.get("precio") != null ? item.get("precio") : item.get("precioUnitario");
-                    
-                    if (precioObj != null) {
-                        PreferenceItemRequest itemRequest = PreferenceItemRequest.builder()
-                                .title((String) item.get("nombre"))
-                                .quantity(((Number) item.get("cantidad")).intValue())
-                                .unitPrice(new BigDecimal(precioObj.toString()))
-                                .currencyId("COP")
-                                .build();
-                        items.add(itemRequest);
-                    }
-                }
+                pedido.setItems(detalles);
             }
 
-            Number costoEnvio = (Number) pedido.get("costoEnvio");
-            if (costoEnvio != null && costoEnvio.doubleValue() > 0) {
-                String ciudad = pedido.get("ciudadEnvio") != null ? pedido.get("ciudadEnvio").toString() : "N/A";
-                PreferenceItemRequest envioItem = PreferenceItemRequest.builder()
-                        .title("Costo de Envío (" + ciudad + ")")
-                        .quantity(1)
-                        .unitPrice(new BigDecimal(costoEnvio.toString()))
-                        .currencyId("COP")
-                        .build();
-                items.add(envioItem);
-            }
+            // 2. Guardar en MySQL
+            pedidoRepository.save(pedido);
 
-            PreferenceRequest preferenceRequest = PreferenceRequest.builder()
-                    .items(items)
-                    .build();
-
-            PreferenceClient client = new PreferenceClient();
-            Preference preference = client.create(preferenceRequest);
-
-            Map<String, String> response = new HashMap<>();
-            String redirectUrl = preference.getSandboxInitPoint() != null && !preference.getSandboxInitPoint().isEmpty()
-                    ? preference.getSandboxInitPoint()
-                    : preference.getInitPoint();
-
-            response.put("initPoint", redirectUrl);
-            return ResponseEntity.ok(response);
+            // 3. Simulación / Integración con Mercado Pago
+            // (Reemplaza este bloque con tus credenciales/cliente SDK de Mercado Pago si ya lo tienes)
+            Map<String, String> respuesta = new HashMap<>();
+            respuesta.put("initPoint", "https://www.mercadopago.com"); // Reemplazar con preference.getInitPoint()
+            
+            return ResponseEntity.ok(respuesta);
 
         } catch (Exception e) {
-            e.printStackTrace();
-            Map<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+            return ResponseEntity.badRequest().body("Error al registrar el pedido: " + e.getMessage());
         }
     }
 }

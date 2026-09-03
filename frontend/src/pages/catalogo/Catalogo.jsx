@@ -1,11 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { obtenerProductos } from '../../services/productoService';
 
 export default function Catalogo() {
     const [productos, setProductos] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [carrito, setCarrito] = useState([]);
+
+    // 1. Inicialización del carrito desde LocalStorage
+    const [carrito, setCarrito] = useState(() => {
+        try {
+            const carritoGuardado = localStorage.getItem('carrito_nowstyle');
+            return carritoGuardado ? JSON.parse(carritoGuardado) : [];
+        } catch (e) {
+            console.error("Error al cargar el carrito de localStorage", e);
+            return [];
+        }
+    });
+
     const [carritoAbierto, setCarritoAbierto] = useState(false);
     const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
     const [perfilAbierto, setPerfilAbierto] = useState(false);
@@ -23,6 +34,7 @@ export default function Catalogo() {
     const [mensajeCupon, setMensajeCupon] = useState({ texto: '', color: '' });
 
     const navigate = useNavigate();
+    const location = useLocation();
 
     // Estado del usuario inicializado desde LocalStorage
     const [rolUsuario, setRolUsuario] = useState(() => localStorage.getItem('usuarioRol') || 'CLIENTE');
@@ -39,6 +51,37 @@ export default function Catalogo() {
 
     const [fotoNuevaSeleccionada, setFotoNuevaSeleccionada] = useState(false);
 
+    // 2. Persistir el carrito en LocalStorage en cada cambio
+    useEffect(() => {
+        try {
+            localStorage.setItem('carrito_nowstyle', JSON.stringify(carrito));
+        } catch (e) {
+            console.error("Error al guardar el carrito en localStorage", e);
+        }
+    }, [carrito]);
+
+    // 3. Capturar retornos de navegación con datos actualizados (Ej. desde PersonalizarEstampado)
+    useEffect(() => {
+        if (location.state?.productoActualizado) {
+            const productoModificado = location.state.productoActualizado;
+
+            setCarrito(prevCarrito => 
+                prevCarrito.map(item => 
+                    item.cartItemId === productoModificado.cartItemId ? productoModificado : item
+                )
+            );
+
+            setCarritoAbierto(true);
+            window.history.replaceState({}, document.title);
+        } else if (location.state?.carritoRestaurado) {
+            setCarrito(location.state.carritoRestaurado);
+            if (location.state.abrirCarrito) {
+                setCarritoAbierto(true);
+            }
+            window.history.replaceState({}, document.title);
+        }
+    }, [location.state]);
+
     // Cargar productos y establecer tallas por defecto
     useEffect(() => {
         obtenerProductos()
@@ -46,7 +89,6 @@ export default function Catalogo() {
                 const prods = data || [];
                 setProductos(prods);
 
-                // Inicializar la primera talla disponible para cada producto en el estado
                 const inicialTallas = {};
                 prods.forEach(p => {
                     const tallas = obtenerTallasDisponibles(p.tallasStock);
@@ -82,39 +124,38 @@ export default function Catalogo() {
     };
 
     const handleGuardarSoloFoto = async () => {
-    const usuarioId = localStorage.getItem('usuarioId');
-    if (!usuarioId) {
-        alert("No se encontró el ID de usuario.");
-        return;
-    }
-
-    try {
-        const response = await fetch(`http://localhost:8080/api/usuarios/${usuarioId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                usuario: nombreUsuario,
-                email: emailUsuario,
-                telefono: telefonoUsuario,
-                foto: tempFoto // String Base64 completo
-            })
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            const fotoGuardada = data.foto || tempFoto;
-            
-            // Actualizar estados locales y LocalStorage
-            setFotoPerfil(fotoGuardada);
-            localStorage.setItem('usuarioFoto', fotoGuardada);
-            setFotoNuevaSeleccionada(false);
-        } else {
-            console.error("Error al actualizar la foto en el servidor.");
+        const usuarioId = localStorage.getItem('usuarioId');
+        if (!usuarioId) {
+            alert("No se encontró el ID de usuario.");
+            return;
         }
-    } catch (err) {
-        console.error("Error de red al guardar la foto:", err);
-    }
-};
+
+        try {
+            const response = await fetch(`http://localhost:8080/api/usuarios/${usuarioId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    usuario: nombreUsuario,
+                    email: emailUsuario,
+                    telefono: telefonoUsuario,
+                    foto: tempFoto
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const fotoGuardada = data.foto || tempFoto;
+                
+                setFotoPerfil(fotoGuardada);
+                localStorage.setItem('usuarioFoto', fotoGuardada);
+                setFotoNuevaSeleccionada(false);
+            } else {
+                console.error("Error al actualizar la foto en el servidor.");
+            }
+        } catch (err) {
+            console.error("Error de red al guardar la foto:", err);
+        }
+    };
 
     const handleGuardarPerfil = async (e) => {
         e.preventDefault();
@@ -211,60 +252,59 @@ export default function Catalogo() {
     };
 
     const agregarAlCarrito = (producto) => {
-    if (!producto) return;
+        if (!producto) return;
 
-    // Detecta si la propiedad id viene con id, idProducto o _id
-    const prodId = producto.id || producto.idProducto || producto._id;
-    if (!prodId) {
-        console.error("El producto no tiene un ID válido:", producto);
-        return;
-    }
-
-    const tallasDisponibles = obtenerTallasDisponibles(producto.tallasStock);
-    const talla = (tallasSeleccionadas && tallasSeleccionadas[prodId]) 
-        || (tallasDisponibles.length > 0 ? tallasDisponibles[0] : 'Única');
-
-    const cartItemId = `${prodId}-${talla}`;
-
-    setCarrito(prevCarrito => {
-        const existente = prevCarrito.find(item => item && item.cartItemId === cartItemId);
-        if (existente) {
-            return prevCarrito.map(item => 
-                item.cartItemId === cartItemId 
-                    ? { ...item, cantidad: item.cantidad + 1 } 
-                    : item
-            );
+        const prodId = producto.id || producto.idProducto || producto._id;
+        if (!prodId) {
+            console.error("El producto no tiene un ID válido:", producto);
+            return;
         }
-        
-        return [...prevCarrito, { 
-            cartItemId, 
-            id: prodId, 
-            nombre: producto.nombre || 'Producto sin nombre', 
-            precio: Number(producto.precio) || 0, 
-            categoria: producto.categoria || '', 
-            cantidad: 1, 
-            talla: talla, 
-            estampado: producto.estampado || null 
-        }];
-    });
 
-    setCarritoAbierto(true);
-};
+        const tallasDisponibles = obtenerTallasDisponibles(producto.tallasStock);
+        const talla = (tallasSeleccionadas && tallasSeleccionadas[prodId]) 
+            || (tallasDisponibles.length > 0 ? tallasDisponibles[0] : 'Única');
 
-const cambiarCantidad = (cartItemId, delta) => {
-    setCarrito(prevCarrito => {
-        if (!Array.isArray(prevCarrito)) return [];
-        return prevCarrito
-            .map(item => {
-                if (item && item.cartItemId === cartItemId) {
-                    const nuevaCant = (Number(item.cantidad) || 1) + delta;
-                    return nuevaCant > 0 ? { ...item, cantidad: nuevaCant } : null;
-                }
-                return item;
-            })
-            .filter(Boolean);
-    });
-};
+        const cartItemId = `${prodId}-${talla}`;
+
+        setCarrito(prevCarrito => {
+            const existente = prevCarrito.find(item => item && item.cartItemId === cartItemId);
+            if (existente) {
+                return prevCarrito.map(item => 
+                    item.cartItemId === cartItemId 
+                        ? { ...item, cantidad: item.cantidad + 1 } 
+                        : item
+                );
+            }
+            
+            return [...prevCarrito, { 
+                cartItemId, 
+                id: prodId, 
+                nombre: producto.nombre || 'Producto sin nombre', 
+                precio: Number(producto.precio) || 0, 
+                categoria: producto.categoria || '', 
+                cantidad: 1, 
+                talla: talla, 
+                estampado: producto.estampado || null 
+            }];
+        });
+
+        setCarritoAbierto(true);
+    };
+
+    const cambiarCantidad = (cartItemId, delta) => {
+        setCarrito(prevCarrito => {
+            if (!Array.isArray(prevCarrito)) return [];
+            return prevCarrito
+                .map(item => {
+                    if (item && item.cartItemId === cartItemId) {
+                        const nuevaCant = (Number(item.cantidad) || 1) + delta;
+                        return nuevaCant > 0 ? { ...item, cantidad: nuevaCant } : null;
+                    }
+                    return item;
+                })
+                .filter(Boolean);
+        });
+    };
 
     const eliminarDelCarrito = (cartItemId) => {
         setCarrito(carrito.filter(item => item.cartItemId !== cartItemId));
@@ -283,128 +323,57 @@ const cambiarCantidad = (cartItemId, delta) => {
             setMensajeCupon({ texto: "Cupón inválido o expirado.", color: "#ef4444" });
         }
     };
-const finalizarCompra = async () => {
-  try {
-    const response = await fetch('http://localhost:8080/api/pagos/crear-preferencia', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        items: carrito, // Arreglo de productos [{ nombre, cantidad, precio }]
-        costoEnvio: 6000,
-        ciudadEnvio: 'Bogotá'
-      }),
-    });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Error al generar el pago');
-    }
+    // 4. Función finalizarCompra depurada
+    const finalizarCompra = async () => {
+        if (!direccion.trim()) {
+            alert("Por favor ingresa la dirección de envío completa.");
+            return;
+        }
 
-    const data = await response.json();
+        const ordenDTO = {
+            usuarioEmail: emailUsuario,
+            direccionEnvio: direccion,
+            ciudadEnvio: ciudadEnvio === 'bogota' ? 'Bogotá' : 'Otras ciudades',
+            subtotal: subtotal,
+            descuento: valorDescuento,
+            costoEnvio: costoEnvio,
+            total: totalFinal,
+            items: carrito.map(item => {
+                const precioBase = Number(item.precio) || 0;
+                const extraEstampado = item.estampado && item.estampado.costoExtra ? Number(item.estampado.costoExtra) : 0;
+                return {
+                    productoId: item.id,
+                    nombre: `${item.nombre} (Talla: ${item.talla})`,
+                    cantidad: item.cantidad,
+                    precioUnitario: precioBase + extraEstampado
+                };
+            })
+        };
 
-    // Redirección directa al checkout de Mercado Pago
-    if (data.initPoint) {
-      window.location.href = data.initPoint;
-    }
-  } catch (error) {
-    console.error('Error al procesar la compra:', error);
-    alert('No se pudo conectar con el servidor de pagos.');
-  }
+        try {
+            const response = await fetch('http://localhost:8080/api/pagos/crear-preferencia', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(ordenDTO)
+            });
 
+            if (!response.ok) {
+                const errorData = await response.text();
+                throw new Error(errorData || 'Error en el servidor al generar la preferencia de pago');
+            }
 
-    if (!direccion.trim()) {
-        alert("Por favor ingresa tu dirección de envío.");
-        return;
-    }
-
-    const pedidoPayload = {
-        ciudadEnvio: ciudadEnvio === 'bogota' ? 'Bogotá' : 'Otras ciudades',
-        costoEnvio: costoEnvio,
-        items: carrito.map(item => {
-            const precioBase = Number(item.precio) || 0;
-            const extraEstampado = item.estampado && item.estampado.costoExtra ? Number(item.estampado.costoExtra) : 0;
-            return {
-                nombre: `${item.nombre} (Talla: ${item.talla})`,
-                cantidad: item.cantidad,
-                precio: precioBase + extraEstampado
-            };
-        })
-    };
-
-    try {
-        const response = await fetch('http://localhost:8080/api/pagos/crear-preferencia', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(pedidoPayload)
-        });
-
-        if (response.ok) {
             const data = await response.json();
             if (data.initPoint) {
                 window.location.href = data.initPoint;
             } else {
-                alert("No se pudo obtener la URL de pago.");
+                alert("No se pudo obtener el punto de inicio de pago.");
             }
-        } else {
-            const errorData = await response.text();
-            alert(`Error al procesar el pago: ${errorData || 'Intenta nuevamente'}`);
+        } catch (error) {
+            console.error('Error al procesar la compra:', error);
+            alert('No se pudo conectar con el servidor de pagos.');
         }
-    } catch (error) {
-        console.error("Error conectando con la pasarela de pagos:", error);
-        alert("No se pudo conectar con el servidor de pagos.");
-    }
-
-
-    if (!direccion.trim()) {
-        alert("Por favor ingresa la dirección de envío.");
-        return;
-    }
-
-    // Estructurar los ítems en el formato que espera CartItemDTO / Backend
-    const ordenDTO = {
-        usuarioEmail: emailUsuario,
-        direccionEnvio: direccion,
-        ciudadEnvio: ciudadEnvio,
-        subtotal: subtotal,
-        descuento: valorDescuento,
-        costoEnvio: costoEnvio,
-        total: totalFinal,
-        items: carrito.map(item => ({
-            productoId: item.id,
-            nombre: item.nombre,
-            cantidad: item.cantidad,
-            talla: item.talla,
-            precioUnitario: item.precio
-        }))
     };
-
-    try {
-        const response = await fetch('http://localhost:8080/api/pagos/crear-preferencia', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(ordenDTO)
-        });
-
-        if (!response.ok) {
-            throw new Error('Error en el servidor al generar la preferencia de pago');
-        }
-
-        const data = await response.json();
-
-        if (data.initPoint) {
-            window.location.href = data.initPoint;
-        }
-    } catch (error) {
-        console.error('Error al procesar la compra:', error);
-        alert('No se pudo conectar con el servidor de pagos.');
-    }
-};
 
     const productosFiltrados = productos.filter(p => {
         if (categoriasSeleccionadas.length === 0) return true;
@@ -417,12 +386,12 @@ const finalizarCompra = async () => {
     });
 
     const subtotal = carrito.reduce((acc, item) => {
-    if (!item) return acc;
-    const precioBase = Number(item.precio) || 0;
-    const extraEstampado = item.estampado && item.estampado.costoExtra ? Number(item.estampado.costoExtra) : 0;
-    const cantidadItem = Number(item.cantidad) || 1;
-    return acc + (precioBase + extraEstampado) * cantidadItem;
-}, 0);
+        if (!item) return acc;
+        const precioBase = Number(item.precio) || 0;
+        const extraEstampado = item.estampado && item.estampado.costoExtra ? Number(item.estampado.costoExtra) : 0;
+        const cantidadItem = Number(item.cantidad) || 1;
+        return acc + (precioBase + extraEstampado) * cantidadItem;
+    }, 0);
 
     const valorDescuento = subtotal * descuento;
     const costoEnvio = subtotal > 0 ? (ciudadEnvio === 'bogota' ? 6000 : 12000) : 0;
@@ -451,10 +420,16 @@ const finalizarCompra = async () => {
                                 ⚙️ Panel
                             </button>
                         )}
+                        <button 
+                            onClick={() => navigate('/historial-pedidos')} 
+                            style={{ backgroundColor: '#27272a', border: '1px solid #3f3f46', color: 'white', padding: '0.6rem 1rem', borderRadius: '0.6rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
+                        >
+                            📊 Reportes
+                        </button>
 
                         <button onClick={toggleCarrito} style={{ backgroundColor: '#000000', border: '1px solid #27272a', color: 'white', padding: '0.6rem 1rem', borderRadius: '0.6rem', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
-    🛒 Carrito (<span style={{ color: '#dc2626' }}>{carrito.reduce((acc, i) => acc + (Number(i?.cantidad) || 0), 0)}</span>)
-</button>
+                            🛒 Carrito (<span style={{ color: '#dc2626' }}>{carrito.reduce((acc, i) => acc + (Number(i?.cantidad) || 0), 0)}</span>)
+                        </button>
 
                         <div 
                             onClick={togglePerfil} 
@@ -638,6 +613,7 @@ const finalizarCompra = async () => {
                 )}
             </div>
 
+            {/* PANEL LATERAL DEL CARRITO */}
             <div style={{ 
                 position: 'fixed', top: 0, right: carritoAbierto ? '0' : '-450px', 
                 width: '400px', height: '100vh', backgroundColor: '#09090b', 
@@ -662,13 +638,38 @@ const finalizarCompra = async () => {
                                     </div>
                                     <button onClick={() => eliminarDelCarrito(item.cartItemId)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.9rem' }}>🗑️</button>
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+
+                                <button 
+                                    onClick={() => navigate('/personalizar-estampado', { state: { producto: item, carritoActual: carrito } })}
+                                    style={{
+                                        width: '100%',
+                                        backgroundColor: item.estampado ? '#dc2626' : '#09090b',
+                                        border: '1px solid #3f3f46',
+                                        color: '#ffffff',
+                                        padding: '0.45rem 0.6rem',
+                                        borderRadius: '0.4rem',
+                                        fontSize: '0.75rem',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justify: 'center',
+                                        gap: '0.4rem',
+                                        margin: '0.2rem 0'
+                                    }}
+                                >
+                                    {item.estampado ? '✨ Estampado Personalizado Aplicado' : '✨ Personaliza tu propio estampado'}
+                                </button>
+
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.2rem' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#09090b', border: '1px solid #27272a', borderRadius: '0.3rem', padding: '0.2rem 0.5rem' }}>
                                         <button onClick={() => cambiarCantidad(item.cartItemId, -1)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>-</button>
                                         <span style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>{item.cantidad}</span>
                                         <button onClick={() => cambiarCantidad(item.cartItemId, 1)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>+</button>
                                     </div>
-                                    <span style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>${((item.precio + (item.estampado ? item.estampado.costoExtra : 0)) * item.cantidad).toLocaleString('es-CO')}</span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>
+                                        ${((item.precio + (item.estampado ? Number(item.estampado.costoExtra || 0) : 0)) * item.cantidad).toLocaleString('es-CO')}
+                                    </span>
                                 </div>
                             </div>
                         ))
@@ -714,7 +715,6 @@ const finalizarCompra = async () => {
                             </div>
                         </div>
 
-                        {/* AQUÍ ESTÁ EL CAMBIO EN EL ONCLICK */}
                         <button 
                             style={{ width: '100%', backgroundColor: '#dc2626', color: 'white', border: 'none', padding: '0.8rem', borderRadius: '0.6rem', fontWeight: 900, textTransform: 'uppercase', cursor: 'pointer', marginTop: '0.5rem', fontSize: '0.9rem' }} 
                             onClick={finalizarCompra}
