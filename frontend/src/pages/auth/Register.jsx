@@ -85,7 +85,7 @@ export default function Register() {
         <div className="auth-header">
           <h2 className="auth-title">Now<span>Style</span></h2>
           <p className="auth-subtitle">
-            {pasoVerificacion ? 'Ingresa el código de la consola' : 'Crea tu nueva cuenta'}
+            {pasoVerificacion ? 'Ingresa el código' : 'Crea tu nueva cuenta'}
           </p>
         </div>
 
