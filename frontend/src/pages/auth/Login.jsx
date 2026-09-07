@@ -36,6 +36,7 @@ export default function Login() {
         localStorage.setItem('usuarioNombre', usuarioLogueado.usuario || usuarioLogueado.email || 'Usuario');
         localStorage.setItem('usuarioEmail', usuarioLogueado.email || identificador);
         localStorage.setItem('usuarioTelefono', usuarioLogueado.telefono || 'No registrado');
+        localStorage.setItem('usuarioCuponPrimeraCompra', String(usuarioLogueado.cuponPrimeraCompra === true));
 
         if (usuarioLogueado.id) {
           localStorage.setItem('usuarioId', usuarioLogueado.id);

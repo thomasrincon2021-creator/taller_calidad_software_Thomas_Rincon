@@ -15,6 +15,8 @@ public class Usuario {
     private String telefono;
     private String password;
 
+    private Boolean cuponPrimeraCompra = false;
+
     // Se asigna "CLIENTE" por defecto al crear la instancia
     private String rol = "CLIENTE";
 
@@ -60,6 +62,9 @@ public class Usuario {
 
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
+
+    public Boolean getCuponPrimeraCompra() { return cuponPrimeraCompra; }
+    public void setCuponPrimeraCompra(Boolean cuponPrimeraCompra) { this.cuponPrimeraCompra = cuponPrimeraCompra; }
 
     public String getRol() { return rol; }
     public void setRol(String rol) { this.rol = rol; }

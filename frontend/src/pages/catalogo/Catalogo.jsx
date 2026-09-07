@@ -60,6 +60,14 @@ export default function Catalogo() {
         }
     }, [carrito]);
 
+    useEffect(() => {
+        if (localStorage.getItem('usuarioCuponPrimeraCompra') === 'true') {
+            setCupon('NOW20');
+            setDescuento(0.20);
+            setMensajeCupon({ texto: '¡Tienes un cupón de bienvenida! NOW20 aplicado: 20% de descuento.', color: '#22c55e' });
+        }
+    }, []);
+
     // 3. Capturar retornos de navegación con datos actualizados (Ej. desde PersonalizarEstampado)
     useEffect(() => {
         if (location.state?.productoActualizado) {
@@ -339,6 +347,7 @@ export default function Catalogo() {
             descuento: valorDescuento,
             costoEnvio: costoEnvio,
             total: totalFinal,
+            cupon: cupon,
             items: carrito.map(item => {
                 const precioBase = Number(item.precio) || 0;
                 const extraEstampado = item.estampado && item.estampado.costoExtra ? Number(item.estampado.costoExtra) : 0;
@@ -364,10 +373,14 @@ export default function Catalogo() {
             }
 
             const data = await response.json();
-            if (data.initPoint) {
-                window.location.href = data.initPoint;
+            if (data.simulado) {
+                localStorage.setItem('usuarioCuponPrimeraCompra', 'false');
+                setCarrito([]);
+                setCarritoAbierto(false);
+                alert(`¡Compra simulada aprobada! Pedido #${data.pedidoId} reportado al empleado.`);
+                navigate('/historial-pedidos');
             } else {
-                alert("No se pudo obtener el punto de inicio de pago.");
+                alert("No se pudo confirmar el pago.");
             }
         } catch (error) {
             console.error('Error al procesar la compra:', error);

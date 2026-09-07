@@ -5,6 +5,8 @@ export default function Reportes() {
     const navigate = useNavigate();
     const [pedidos, setPedidos] = useState([]);
     const [cargando, setCargando] = useState(true);
+    const [mensajes, setMensajes] = useState({});
+    const [nuevoMensaje, setNuevoMensaje] = useState({});
 
     const emailUsuario = localStorage.getItem('usuarioEmail') || '';
     const rolUsuario = localStorage.getItem('usuarioRol') || 'CLIENTE';
@@ -21,6 +23,7 @@ export default function Reportes() {
                 if (response.ok) {
                     const data = await response.json();
                     setPedidos(data);
+                    data.forEach(pedido => cargarMensajes(pedido.id));
                 }
             } catch (error) {
                 console.error("Error al cargar pedidos:", error);
@@ -31,6 +34,62 @@ export default function Reportes() {
 
         obtenerHistorial();
     }, [emailUsuario, rolUsuario]);
+
+    const cargarMensajes = async (pedidoId) => {
+        try {
+            const response = await fetch(`http://localhost:8080/api/pedidos/${pedidoId}/mensajes`);
+            if (response.ok) {
+                const data = await response.json();
+                setMensajes(prev => ({ ...prev, [pedidoId]: data }));
+            }
+        } catch (error) {
+            console.error('Error al cargar mensajes:', error);
+        }
+    };
+
+    const enviarMensaje = async (pedidoId) => {
+        const texto = (nuevoMensaje[pedidoId] || '').trim();
+        if (!texto) return;
+
+        try {
+            const response = await fetch(`http://localhost:8080/api/pedidos/${pedidoId}/mensajes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mensaje: texto, autorEmail: emailUsuario, rolAutor: rolUsuario })
+            });
+            if (response.ok) {
+                setNuevoMensaje(prev => ({ ...prev, [pedidoId]: '' }));
+                cargarMensajes(pedidoId);
+            }
+        } catch (error) {
+            console.error('Error al enviar mensaje:', error);
+        }
+    };
+
+    const enviarMensajeTexto = async (pedidoId, texto) => {
+        const response = await fetch(`http://localhost:8080/api/pedidos/${pedidoId}/mensajes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mensaje: texto, autorEmail: emailUsuario, rolAutor: rolUsuario })
+        });
+        if (response.ok) cargarMensajes(pedidoId);
+    };
+
+    const actualizarEstado = async (pedidoId, estado, mensaje) => {
+        try {
+            const response = await fetch(`http://localhost:8080/api/pedidos/${pedidoId}/estado`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ estado })
+            });
+            if (response.ok) {
+                setPedidos(prev => prev.map(pedido => pedido.id === pedidoId ? { ...pedido, estado } : pedido));
+                enviarMensajeTexto(pedidoId, mensaje);
+            }
+        } catch (error) {
+            console.error('Error al actualizar estado:', error);
+        }
+    };
 
     return (
         <div style={{ backgroundColor: '#000000', minHeight: '100vh', color: '#ffffff', fontFamily: 'sans-serif', padding: '2rem' }}>
@@ -103,6 +162,31 @@ export default function Reportes() {
                                     <span style={{ color: '#22c55e', fontWeight: 'bold', fontSize: '1.2rem' }}>
                                         ${Number(pedido.total).toLocaleString()}
                                     </span>
+                                </div>
+
+                                <div style={{ marginTop: '1.25rem', backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '0.5rem', padding: '1rem' }}>
+                                    <h4 style={{ margin: '0 0 0.75rem', color: '#d4d4d8', fontSize: '0.85rem' }}>💬 Conversación del pedido</h4>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '180px', overflowY: 'auto', marginBottom: '0.75rem' }}>
+                                        {(mensajes[pedido.id] || []).length === 0 ? (
+                                            <span style={{ color: '#71717a', fontSize: '0.8rem' }}>Aún no hay mensajes.</span>
+                                        ) : (mensajes[pedido.id] || []).map(mensaje => (
+                                            <div key={mensaje.id} style={{ backgroundColor: mensaje.rolAutor === 'EMPLEADO' || mensaje.rolAutor === 'ADMIN' ? '#3f1d1d' : '#27272a', borderRadius: '0.4rem', padding: '0.55rem 0.7rem' }}>
+                                                <div style={{ color: '#fca5a5', fontSize: '0.7rem', fontWeight: 'bold' }}>{mensaje.rolAutor || 'CLIENTE'} · {mensaje.fecha ? new Date(mensaje.fecha).toLocaleString() : ''}</div>
+                                                <div style={{ color: '#f4f4f5', fontSize: '0.85rem' }}>{mensaje.mensaje}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {rolUsuario === 'ADMIN' || rolUsuario === 'EMPLEADO' ? (
+                                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.7rem' }}>
+                                            <button onClick={() => actualizarEstado(pedido.id, 'APROBADO', '¡Pedido recibido y está chimba!')} style={{ backgroundColor: '#15803d', color: 'white', border: 0, borderRadius: '0.35rem', padding: '0.4rem 0.6rem', cursor: 'pointer', fontSize: '0.75rem' }}>✓ Está chimba</button>
+                                            <button onClick={() => actualizarEstado(pedido.id, 'EN_PREPARACION', 'Pedido confirmado, estamos preparándolo.')} style={{ backgroundColor: '#b45309', color: 'white', border: 0, borderRadius: '0.35rem', padding: '0.4rem 0.6rem', cursor: 'pointer', fontSize: '0.75rem' }}>Preparar</button>
+                                            <button onClick={() => actualizarEstado(pedido.id, 'ENVIADO', 'Tu pedido ya fue enviado.')} style={{ backgroundColor: '#2563eb', color: 'white', border: 0, borderRadius: '0.35rem', padding: '0.4rem 0.6rem', cursor: 'pointer', fontSize: '0.75rem' }}>Enviar</button>
+                                        </div>
+                                    ) : null}
+                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <input value={nuevoMensaje[pedido.id] || ''} onChange={e => setNuevoMensaje(prev => ({ ...prev, [pedido.id]: e.target.value }))} onKeyDown={e => e.key === 'Enter' && enviarMensaje(pedido.id)} placeholder="Escribe un mensaje sobre el pedido..." style={{ flex: 1, minWidth: 0, backgroundColor: '#09090b', color: 'white', border: '1px solid #3f3f46', borderRadius: '0.35rem', padding: '0.55rem' }} />
+                                        <button onClick={() => enviarMensaje(pedido.id)} style={{ backgroundColor: '#dc2626', color: 'white', border: 0, borderRadius: '0.35rem', padding: '0 0.8rem', cursor: 'pointer', fontWeight: 'bold' }}>Enviar</button>
+                                    </div>
                                 </div>
 
                             </div>

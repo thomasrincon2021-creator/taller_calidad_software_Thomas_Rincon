@@ -83,6 +83,7 @@ public class UsuarioController {
             nuevoUsuario.setEmail(email);
             nuevoUsuario.setTelefono(userData.get("telefono"));
             nuevoUsuario.setPassword(userData.get("password"));
+            nuevoUsuario.setCuponPrimeraCompra(true);
 
             Usuario guardado = usuarioRepository.save(nuevoUsuario);
             return ResponseEntity.ok(guardado);

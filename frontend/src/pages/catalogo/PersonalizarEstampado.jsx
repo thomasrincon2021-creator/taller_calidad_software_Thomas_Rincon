@@ -14,26 +14,38 @@ const PersonalizarEstampado = () => {
         }
     }, [producto, navigate]);
 
-    // Detección automática del color hexadecimal si producto.colorHex no existe
-    // Detección automática del color hexadecimal si producto.colorHex no existe
-const colorPrendaHex = useMemo(() => {
-    if (producto?.colorHex) return producto.colorHex;
-    
-    const nombre = (producto?.nombre || '').toLowerCase();
-    
-    // Cambiamos #121212 por un tono carbón/antracita (#27272a)
-    if (nombre.includes('negra') || nombre.includes('negro')) return '#27272a';
-    if (nombre.includes('blanca') || nombre.includes('blanco')) return '#ffffff';
-    if (nombre.includes('roja') || nombre.includes('rojo')) return '#dc2626';
-    if (nombre.includes('azul')) return '#2563eb';
-    
-    return '#e3e3ec'; // Color oscuro por defecto
-}, [producto]);
+    const colorPrendaHex = useMemo(() => {
+        if (producto?.colorHex) return producto.colorHex;
+        const color = (producto?.color || producto?.nombre || '').toLowerCase();
+        if (color.includes('negro') || color.includes('negra')) return '#111111';
+        if (color.includes('blanco') || color.includes('blanca')) return '#ffffff';
+        if (color.includes('rojo') || color.includes('roja')) return '#dc2626';
+        if (color.includes('azul')) return '#2563eb';
+        if (color.includes('verde')) return '#16a34a';
+        if (color.includes('amarillo')) return '#facc15';
+        return '#e3e3ec';
+    }, [producto]);
+
+    const rutaModelo = useMemo(() => {
+        if (producto?.modelo3d) return producto.modelo3d;
+
+        const descripcion = `${producto?.categoria || ''} ${producto?.nombre || ''}`.toLowerCase();
+        if (descripcion.includes('hoodie') || descripcion.includes('buzo') || descripcion.includes('sudadera')) {
+            return '/modelos/hoodies_base.glb';
+        }
+        if (descripcion.includes('pantalon') || descripcion.includes('pantalón') || descripcion.includes('baggy')) {
+            return '/modelos/pantalon_base.glb';
+        }
+        return '/modelos/camiseta_base.glb';
+    }, [producto]);
 
     // Estados del formulario
-    const [ubicacion, setUbicacion] = useState('pecho');
+    const [ubicacion, setUbicacion] = useState(() => rutaModelo.includes('pantalon') ? 'pantalon-frente' : 'frente');
     const [imagenes, setImagenes] = useState([]);
-    const [colorTinta, setColorTinta] = useState('Blanco');
+    const [colorTinta, setColorTinta] = useState('#ffffff');
+    const [fuenteTexto, setFuenteTexto] = useState('Arial');
+    const [tamanoTexto, setTamanoTexto] = useState(48);
+    const [posicionesFrases, setPosicionesFrases] = useState({});
     const [notas, setNotas] = useState('');
 
     // Estados de frases según ubicación
@@ -47,13 +59,16 @@ const colorPrendaHex = useMemo(() => {
 
     const [precioExtra, setPrecioExtra] = useState(0);
 
-    // Opciones de ubicaciones
-    const ubicaciones = [
-        { id: 'pecho', nombre: 'Pecho / Frente', costo: 10000, tipo: 'simple' },
-        { id: 'espalda', nombre: 'Espalda Central', costo: 15000, tipo: 'simple' },
-        { id: 'doble', nombre: 'Pecho + Espalda', costo: 22000, tipo: 'doble' },
-        { id: 'mangas', nombre: 'Manga Izquierda + Manga Derecha', costo: 18000, tipo: 'doble' },
-        { id: 'completo', nombre: 'Todas las Zonas (Frente, Espalda y Mangas)', costo: 35000, tipo: 'cuadruple' }
+    const esPantalon = rutaModelo.includes('pantalon');
+
+    const ubicaciones = esPantalon ? [
+        { id: 'pantalon-frente', nombre: 'Frente del pantalón (1 o 2 diseños)', costo: 10000, tipo: 'simple' },
+        { id: 'pantalon-espalda', nombre: 'Parte trasera del pantalón', costo: 10000, tipo: 'simple' },
+        { id: 'pantalon-ambos', nombre: 'Adelante y atrás', costo: 18000, tipo: 'simple' }
+    ] : [
+        { id: 'frente', nombre: 'Parte del frente (1 o 2 diseños)', costo: 10000, tipo: 'simple' },
+        { id: 'espalda', nombre: 'Parte trasera', costo: 10000, tipo: 'simple' },
+        { id: 'ambos', nombre: 'Adelante y atrás', costo: 18000, tipo: 'simple' }
     ];
 
     // Recalcular precio dinámico
@@ -70,14 +85,18 @@ const colorPrendaHex = useMemo(() => {
     // Manejar selección de imágenes
     const manejarSeleccionImagenes = (e) => {
         const files = Array.from(e.target.files);
-        if (files.length + imagenes.length > 3) {
-            alert('Puedes subir como máximo 3 imágenes.');
+        if (files.length + imagenes.length > 2) {
+            alert('Puedes subir como máximo 2 imágenes por zona.');
             return;
         }
 
         const nuevasImagenes = files.map(file => ({
             file,
-            preview: URL.createObjectURL(file)
+            preview: URL.createObjectURL(file),
+            x: 0,
+            y: 0,
+            escala: 1,
+            rotacion: 0
         }));
 
         setImagenes(prev => [...prev, ...nuevasImagenes].slice(0, 3));
@@ -88,8 +107,36 @@ const colorPrendaHex = useMemo(() => {
         setImagenes(prev => prev.filter((_, i) => i !== index));
     };
 
-    // Estructurar objeto final y volver al catálogo
-    const guardarEstampadoEnItem = () => {
+    const actualizarImagen = (index, propiedad, valor) => {
+        setImagenes(prev => prev.map((imagen, indice) => indice === index
+            ? { ...imagen, [propiedad]: Number(valor) }
+            : imagen));
+    };
+
+    const moverImagenDesdeVisor = (index, coordenadas) => {
+        setImagenes(prev => prev.map((imagen, indice) => indice === index
+            ? { ...imagen, ...coordenadas }
+            : imagen));
+    };
+
+    const moverFraseDesdeVisor = (fraseId, coordenadas) => {
+        setPosicionesFrases(prev => ({ ...prev, [fraseId]: coordenadas }));
+    };
+
+    const convertirImagenADatos = (imagen) => new Promise((resolve) => {
+        if (!imagen?.file) {
+            resolve(imagen?.preview || imagen?.url || '');
+            return;
+        }
+
+        const lector = new FileReader();
+        lector.onload = () => resolve(lector.result);
+        lector.onerror = () => resolve(imagen.preview);
+        lector.readAsDataURL(imagen.file);
+    });
+
+    // Guarda la prenda personalizada antes de volver al carrito.
+    const guardarEstampadoEnItem = async () => {
         const tipoUbicacion = ubicaciones.find(u => u.id === ubicacion)?.tipo;
 
         let frases = {};
@@ -103,24 +150,45 @@ const colorPrendaHex = useMemo(() => {
 
         const precioBase = producto?.precio || 0;
         const precioTotal = precioBase + precioExtra;
+        const imagenesPersistentes = await Promise.all(imagenes.map(async (img) => ({
+            url: await convertirImagenADatos(img),
+            x: img.x,
+            y: img.y,
+            escala: img.escala,
+            rotacion: img.rotacion
+        })));
 
         const datosEstampado = {
             ubicacion,
             colorTinta,
+            estiloTexto: { color: colorTinta, fuente: fuenteTexto, tamano: tamanoTexto },
+            posicionesFrases,
             notas,
             costoExtra: precioExtra,
             precioTotalFinal: precioTotal,
             frases,
-            imagenes: imagenes.map(img => img.preview)
+            imagenes: imagenesPersistentes
         };
+
+        const productoModificado = {
+            ...producto,
+            precioTotalFinal: precioTotal,
+            estampado: datosEstampado
+        };
+
+        try {
+            const carritoGuardado = JSON.parse(localStorage.getItem('carrito_nowstyle') || '[]');
+            const carritoActualizado = carritoGuardado.map(item =>
+                item.cartItemId === productoModificado.cartItemId ? productoModificado : item
+            );
+            localStorage.setItem('carrito_nowstyle', JSON.stringify(carritoActualizado));
+        } catch (error) {
+            console.error('No se pudo guardar la personalización:', error);
+        }
 
         navigate('/catalogo', { 
             state: { 
-                productoActualizado: { 
-                    ...producto, 
-                    precioTotalFinal: precioTotal,
-                    estampado: datosEstampado 
-                } 
+                productoActualizado: productoModificado
             } 
         });
     };
@@ -131,26 +199,36 @@ const colorPrendaHex = useMemo(() => {
 
     return (
         <div style={{ backgroundColor: '#09090b', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '2rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', width: '100%', maxWidth: '1100px', backgroundColor: '#121215', padding: '2rem', borderRadius: '1rem', border: '1px solid #27272a' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', alignItems: 'start', gap: '2rem', width: '100%', maxWidth: '1100px', backgroundColor: '#121215', padding: '2rem', borderRadius: '1rem', border: '1px solid #27272a' }}>
                 
                 {/* COLUMNA IZQUIERDA: Visor 3D */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <h3 style={{ color: 'white', margin: 0, fontWeight: '900', textTransform: 'uppercase' }}>👁️ Previsualización 3D</h3>
                     <Canvas3D 
+                        rutaModelo={rutaModelo}
                         ubicacion={ubicacion}
-                        imagenes={imagenes.map(img => img.preview)}
+                        imagenes={imagenes.map(img => ({
+                            url: img.preview,
+                            x: img.x,
+                            y: img.y,
+                            escala: img.escala,
+                            rotacion: img.rotacion
+                        }))}
                         frases={
                             tipoActual === 'simple' ? { principal: textoSimple } :
                             tipoActual === 'doble' ? { ladoA: textoLadoA, ladoB: textoLadoB } :
                             { adelante: textoAdelante, atras: textoAtras, mangaIzq: textoMangaIzq, mangaDer: textoMangaDer }
                         }
-                        colorTinta={colorTinta}
+                        estiloTexto={{ color: colorTinta, fuente: fuenteTexto, tamano: tamanoTexto }}
+                        posicionesFrases={posicionesFrases}
                         colorPrenda={colorPrendaHex}
+                        onMoveImage={moverImagenDesdeVisor}
+                        onMoveText={moverFraseDesdeVisor}
                     />
                 </div>
 
                 {/* COLUMNA DERECHA: Formulario */}
-                <div style={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '1rem', padding: '2rem', boxSizing: 'border-box', position: 'relative', maxHeight: '85vh', overflowY: 'auto' }}>
+                <div style={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '1rem', padding: '2rem', boxSizing: 'border-box', position: 'relative', maxHeight: 'calc(100vh - 4rem)', overflowY: 'auto', minHeight: 0 }}>
                     
                     <button onClick={() => navigate('/catalogo')} style={{ position: 'absolute', top: '15px', right: '20px', background: 'none', border: 'none', color: '#a1a1aa', fontSize: '1.5rem', cursor: 'pointer' }}>&times;</button>
                     
@@ -173,15 +251,29 @@ const colorPrendaHex = useMemo(() => {
 
                         {/* 2. Subir Imágenes */}
                         <div>
-                            <label style={{ color: 'white', fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', textTransform: 'uppercase' }}>2. Sube tus diseños (Máx 3 imágenes):</label>
+                            <label style={{ color: 'white', fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', textTransform: 'uppercase' }}>2. Sube tus diseños (Máx 2 imágenes):</label>
                             <input type="file" accept="image/png, image/jpeg, image/webp" multiple onChange={manejarSeleccionImagenes} style={{ width: '100%', backgroundColor: '#09090b', border: '1px solid #27272a', color: 'white', padding: '0.5rem', borderRadius: '0.4rem', fontSize: '0.8rem' }} />
                             
                             {/* Previsualización de imágenes */}
-                            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginTop: '0.75rem', alignItems: 'start' }}>
                                 {imagenes.map((img, idx) => (
-                                    <div key={idx} style={{ position: 'relative', width: '60px', height: '60px' }}>
-                                        <img src={img.preview} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '0.3rem', border: '1px solid #3f3f46' }} />
+                                    <div key={idx} style={{ position: 'relative', minWidth: 0, padding: '0.5rem', border: '1px solid #27272a', borderRadius: '0.4rem', backgroundColor: '#09090b', boxSizing: 'border-box' }}>
+                                        <img src={img.preview} alt="preview" style={{ display: 'block', width: '100%', height: '110px', objectFit: 'contain', backgroundColor: '#000', borderRadius: '0.3rem', border: '1px solid #3f3f46' }} />
                                         <button onClick={() => eliminarImagen(idx)} style={{ position: 'absolute', top: '-5px', right: '-5px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '18px', height: '18px', fontSize: '10px', cursor: 'pointer' }}>✕</button>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.55rem 0.65rem', marginTop: '0.65rem' }}>
+                                            <label style={{ color: '#a1a1aa', fontSize: '0.7rem' }}>Horizontal
+                                                <input type="range" min="-4" max="4" step="0.05" value={img.x} onChange={e => actualizarImagen(idx, 'x', e.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.25rem' }} />
+                                            </label>
+                                            <label style={{ color: '#a1a1aa', fontSize: '0.7rem' }}>Vertical
+                                                <input type="range" min="-5" max="5" step="0.05" value={img.y} onChange={e => actualizarImagen(idx, 'y', e.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.25rem' }} />
+                                            </label>
+                                            <label style={{ color: '#a1a1aa', fontSize: '0.7rem' }}>Tamaño
+                                                <input type="range" min="0.4" max="2" step="0.05" value={img.escala} onChange={e => actualizarImagen(idx, 'escala', e.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.25rem' }} />
+                                            </label>
+                                            <label style={{ color: '#a1a1aa', fontSize: '0.7rem' }}>Giro
+                                                <input type="range" min="-180" max="180" step="1" value={img.rotacion} onChange={e => actualizarImagen(idx, 'rotacion', e.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.25rem' }} />
+                                            </label>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -235,11 +327,17 @@ const colorPrendaHex = useMemo(() => {
                         {/* 4. Tinta */}
                         <div>
                             <label style={{ color: 'white', fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', textTransform: 'uppercase' }}>4. Color de la tinta:</label>
-                            <select value={colorTinta} onChange={(e) => setColorTinta(e.target.value)} style={{ width: '100%', backgroundColor: '#09090b', border: '1px solid #27272a', color: 'white', padding: '0.6rem', borderRadius: '0.4rem' }}>
-                                <option value="Blanco">Blanco Matte</option>
-                                <option value="Negro">Negro Profundo</option>
-                                <option value="Dorado">Dorado Brillante</option>
+                            <input type="color" value={colorTinta} onChange={(e) => setColorTinta(e.target.value)} style={{ width: '100%', height: '42px', backgroundColor: '#09090b', border: '1px solid #27272a', borderRadius: '0.4rem', cursor: 'pointer' }} />
+                            <label style={{ color: '#a1a1aa', fontSize: '0.75rem', display: 'block', marginTop: '0.75rem' }}>Tipo de letra</label>
+                            <select value={fuenteTexto} onChange={(e) => setFuenteTexto(e.target.value)} style={{ width: '100%', backgroundColor: '#09090b', border: '1px solid #27272a', color: 'white', padding: '0.6rem', borderRadius: '0.4rem' }}>
+                                <option value="Arial">Arial</option>
+                                <option value="Georgia">Georgia</option>
+                                <option value="Impact">Impact</option>
+                                <option value="Courier New">Courier New</option>
+                                <option value="Trebuchet MS">Trebuchet MS</option>
                             </select>
+                            <label style={{ color: '#a1a1aa', fontSize: '0.75rem', display: 'block', marginTop: '0.75rem' }}>Tamaño de letra</label>
+                            <input type="range" min="24" max="80" step="2" value={tamanoTexto} onChange={(e) => setTamanoTexto(Number(e.target.value))} style={{ width: '100%' }} />
                         </div>
 
                         {/* 5. Notas */}

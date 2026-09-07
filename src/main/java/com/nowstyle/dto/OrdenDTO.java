@@ -12,6 +12,7 @@ public class OrdenDTO {
     private Double descuento;
     private Double costoEnvio;
     private Double total;
+    private String cupon;
     private List<ItemDTO> items;
 
     public OrdenDTO() {
@@ -79,6 +80,14 @@ public class OrdenDTO {
 
     public void setTotal(Double total) {
         this.total = total;
+    }
+
+    public String getCupon() {
+        return cupon;
+    }
+
+    public void setCupon(String cupon) {
+        this.cupon = cupon;
     }
 
     public List<ItemDTO> getItems() {
