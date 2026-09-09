@@ -236,6 +236,20 @@ export default function Catalogo() {
             .map(item => item.split(':')[0].trim())
             .filter(talla => talla !== '');
     };
+    const productoAgotado = (producto) => {
+    if (!producto?.tallasStock || typeof producto.tallasStock !== 'string') {
+        return true;
+    }
+
+    const tallas = producto.tallasStock
+        .split(',')
+        .map(item => {
+            const partes = item.split(':');
+            return Number(partes[1]?.trim() || 0);
+        });
+
+    return tallas.length === 0 || tallas.every(stock => stock <= 0);
+};
 
     const toggleCarrito = () => setCarritoAbierto(!carritoAbierto);
     const toggleFiltros = () => setFiltrosAbiertos(!filtrosAbiertos);
@@ -284,15 +298,20 @@ export default function Catalogo() {
                 );
             }
             
-            return [...prevCarrito, { 
-                cartItemId, 
-                id: prodId, 
-                nombre: producto.nombre || 'Producto sin nombre', 
-                precio: Number(producto.precio) || 0, 
-                categoria: producto.categoria || '', 
-                cantidad: 1, 
-                talla: talla, 
-                estampado: producto.estampado || null 
+            return [...prevCarrito, {
+                cartItemId,
+                id: prodId,
+                nombre: producto.nombre || 'Producto sin nombre',
+                precio: Number(producto.precio) || 0,
+                categoria: producto.categoria || '',
+                color: producto.color || '',
+                colorHex: producto.colorHex || '',
+                descripcion: producto.descripcion || '',
+                imagen: producto.imagen || '',
+                modelo3d: producto.modelo3d || '',
+                cantidad: 1,
+                talla: talla,
+                estampado: producto.estampado || null
             }];
         });
 
@@ -332,6 +351,27 @@ export default function Catalogo() {
         }
     };
 
+    const construirMensajePedido = () => {
+        const itemsConEstampado = carrito.filter(item => item.estampado).map(item => {
+            const estampado = item.estampado;
+            const ubicacion = estampado?.ubicacion || 'sin ubicación';
+            const frases = Object.entries(estampado?.frases || {})
+                .filter(([, valor]) => typeof valor === 'string' && valor.trim())
+                .map(([key, valor]) => `${key}: ${valor.trim()}`)
+                .join(' | ');
+            const imagenes = estampado?.imagenes?.length ? `${estampado.imagenes.length} imagen(es) adjunta(s)` : 'sin imagen';
+            const color = estampado?.colorTinta ? `tinta ${estampado.colorTinta}` : '';
+
+            return `- ${item.nombre} (Talla: ${item.talla}) | Ubicación: ${ubicacion}${frases ? ` | Frases: ${frases}` : ''}${imagenes ? ` | ${imagenes}` : ''}${color ? ` | ${color}` : ''}`;
+        });
+
+        if (!itemsConEstampado.length) {
+            return '';
+        }
+
+        return `Pedido con estampado personalizado. ${itemsConEstampado.join(' ; ')}`;
+    };
+
     // 4. Función finalizarCompra depurada
     const finalizarCompra = async () => {
         if (!direccion.trim()) {
@@ -348,15 +388,22 @@ export default function Catalogo() {
             costoEnvio: costoEnvio,
             total: totalFinal,
             cupon: cupon,
+            mensajePedido: construirMensajePedido(),
             items: carrito.map(item => {
                 const precioBase = Number(item.precio) || 0;
                 const extraEstampado = item.estampado && item.estampado.costoExtra ? Number(item.estampado.costoExtra) : 0;
                 return {
-                    productoId: item.id,
-                    nombre: `${item.nombre} (Talla: ${item.talla})`,
-                    cantidad: item.cantidad,
-                    precioUnitario: precioBase + extraEstampado
-                };
+    productoId: item.id,
+    nombre: `${item.nombre} (Talla: ${item.talla})`,
+    cantidad: item.cantidad,
+    talla: item.talla,
+    precioUnitario: precioBase + extraEstampado,
+    modelo3d: item.modelo3d || '',
+    colorHex: item.colorHex || item.color || '',
+    categoria: item.categoria || '',
+    imagen: item.imagen || '',
+    personalizacion: item.estampado ? JSON.stringify(item.estampado) : null
+};
             })
         };
 
@@ -425,19 +472,52 @@ export default function Catalogo() {
                     </h2>
 
                     <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'center' }}>
-                        {(rolUsuario === 'ADMIN' || rolUsuario === 'EMPLEADO') && (
-                            <button 
-                                onClick={() => navigate('/panel')} 
-                                style={{ backgroundColor: '#27272a', border: '1px solid #3f3f46', color: 'white', padding: '0.6rem 1rem', borderRadius: '0.6rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
-                            >
-                                ⚙️ Panel
-                            </button>
-                        )}
+                       {rolUsuario === 'ADMIN' && (
+    <button
+        onClick={() => navigate('/panel')}
+        style={{
+            backgroundColor: '#27272a',
+            border: '1px solid #3f3f46',
+            color: 'white',
+            padding: '0.6rem 1rem',
+            borderRadius: '0.6rem',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+            fontSize: '0.85rem'
+        }}
+    >
+        ⚙️ Panel Admin
+    </button>
+)}
+
+{rolUsuario === 'EMPLEADO' && (
+    <button
+        onClick={() => navigate('/panel-empleado')}
+        style={{
+            backgroundColor: '#27272a',
+            border: '1px solid #dc2626',
+            color: 'white',
+            padding: '0.6rem 1rem',
+            borderRadius: '0.6rem',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+            fontSize: '0.85rem'
+        }}
+    >
+        👷 Panel Empleado
+    </button>
+)}
                         <button 
                             onClick={() => navigate('/historial-pedidos')} 
                             style={{ backgroundColor: '#27272a', border: '1px solid #3f3f46', color: 'white', padding: '0.6rem 1rem', borderRadius: '0.6rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
                         >
-                            📊 Reportes
+                            � Mis pedidos
                         </button>
 
                         <button onClick={toggleCarrito} style={{ backgroundColor: '#000000', border: '1px solid #27272a', color: 'white', padding: '0.6rem 1rem', borderRadius: '0.6rem', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
@@ -747,8 +827,11 @@ export default function Catalogo() {
                 ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '2rem' }}>
                         {productosFiltrados.map(producto => {
-                            const tallasDisponibles = obtenerTallasDisponibles(producto.tallasStock);
-                            const tallaActual = tallasSeleccionadas[producto.id] || (tallasDisponibles[0] || 'Agotado');
+    const tallasDisponibles = obtenerTallasDisponibles(producto.tallasStock);
+    const estaAgotado = productoAgotado(producto);
+    const tallaActual = estaAgotado
+        ? 'Agotado'
+        : (tallasSeleccionadas[producto.id] || tallasDisponibles[0]);
                             
                             return (
                                 <div key={producto.id} style={{ backgroundColor: '#09090b', border: '1px solid #27272a', borderRadius: '0.75rem', overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
@@ -772,38 +855,40 @@ export default function Catalogo() {
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                                             <label style={{ fontSize: '0.75rem', color: '#a1a1aa', fontWeight: 'bold' }}>Talla:</label>
                                             <select 
-                                                value={tallaActual}
-                                                onChange={(e) => handleCambioTalla(producto.id, e.target.value)}
-                                                disabled={tallasDisponibles.length === 0} 
+    value={tallaActual}
+    onChange={(e) => handleCambioTalla(producto.id, e.target.value)}
+    disabled={estaAgotado} 
                                                 style={{ backgroundColor: '#18181b', border: '1px solid #27272a', color: 'white', padding: '0.4rem', borderRadius: '0.4rem', fontSize: '0.85rem' }}
                                             >
-                                                {tallasDisponibles.length > 0 ? (
-                                                    tallasDisponibles.map(t => <option key={t} value={t}>{t}</option>)
-                                                ) : (
-                                                    <option value="Agotado">Agotado</option>
-                                                )}
+                                                {estaAgotado ? (
+    <option value="Agotado">Agotado</option>
+) : (
+    tallasDisponibles.map(t => (
+        <option key={t} value={t}>{t}</option>
+    ))
+)}
                                             </select>
                                         </div>
 
                                         <button 
-                                            onClick={() => agregarAlCarrito(producto)}
-                                            disabled={tallasDisponibles.length === 0}
+    onClick={() => agregarAlCarrito(producto)}
+    disabled={estaAgotado}
                                             style={{ 
-                                                width: '100%', 
-                                                backgroundColor: tallasDisponibles.length > 0 ? '#ffffff' : '#27272a', 
-                                                color: tallasDisponibles.length > 0 ? '#000000' : '#a1a1aa', 
-                                                border: 'none', 
-                                                padding: '0.65rem', 
-                                                borderRadius: '0.5rem', 
-                                                fontWeight: 900, 
-                                                textTransform: 'uppercase', 
-                                                cursor: tallasDisponibles.length > 0 ? 'pointer' : 'not-allowed',
-                                                marginTop: 'auto',
-                                                fontSize: '0.8rem'
-                                            }}
+    width: '100%', 
+    backgroundColor: !estaAgotado ? '#ffffff' : '#27272a', 
+    color: !estaAgotado ? '#000000' : '#a1a1aa', 
+    border: 'none', 
+    padding: '0.65rem', 
+    borderRadius: '0.5rem', 
+    fontWeight: 900, 
+    textTransform: 'uppercase', 
+    cursor: !estaAgotado ? 'pointer' : 'not-allowed',
+    marginTop: 'auto',
+    fontSize: '0.8rem'
+}}
                                         >
-                                            {tallasDisponibles.length > 0 ? 'Agregar al Carrito' : 'Agotado'}
-                                        </button>
+    {!estaAgotado ? 'Agregar al Carrito' : 'Agotado'}
+</button>
                                     </div>
                                 </div>
                             );

@@ -1,15 +1,18 @@
 package com.nowstyle.taller_calidad_backend.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nowstyle.taller_calidad_backend.model.Pedido;
 import com.nowstyle.taller_calidad_backend.model.MensajePedido;
 import com.nowstyle.taller_calidad_backend.repository.PedidoRepository;
 import com.nowstyle.taller_calidad_backend.repository.MensajePedidoRepository;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/pedidos")
@@ -37,22 +40,58 @@ public class PedidoController {
 
     @GetMapping("/{pedidoId}/mensajes")
     public ResponseEntity<List<MensajePedido>> obtenerMensajes(@PathVariable Long pedidoId) {
-        return ResponseEntity.ok(mensajePedidoRepository.findByPedidoIdOrderByFechaAsc(pedidoId));
+        List<MensajePedido> mensajes = mensajePedidoRepository.findByPedidoIdOrderByFechaAsc(pedidoId).stream()
+            .map(mensaje -> {
+                if (mensaje.getImagen() != null && mensaje.getMensaje() != null && mensaje.getMensaje().trim().equalsIgnoreCase("Imagen adjunta")) {
+                    mensaje.setMensaje(null);
+                }
+                return mensaje;
+            })
+            .collect(Collectors.toList());
+
+        return ResponseEntity.ok(mensajes);
     }
 
     @PostMapping("/{pedidoId}/mensajes")
-    public ResponseEntity<?> enviarMensaje(@PathVariable Long pedidoId, @RequestBody MensajePedido mensaje) {
-        if (mensaje.getMensaje() == null || mensaje.getMensaje().isBlank()) {
-            return ResponseEntity.badRequest().body("El mensaje no puede estar vacío.");
-        }
+    public ResponseEntity<?> enviarMensaje(@PathVariable Long pedidoId, HttpServletRequest request) {
+        try {
+            String rawBody = request.getReader().lines().collect(Collectors.joining(System.lineSeparator()));
 
-        if (!pedidoRepository.existsById(pedidoId)) {
-            return ResponseEntity.notFound().build();
-        }
+            if (rawBody == null || rawBody.isBlank()) {
+                return ResponseEntity.badRequest().body("El cuerpo del mensaje es obligatorio.");
+            }
 
-        mensaje.setPedidoId(pedidoId);
-        mensaje.setMensaje(mensaje.getMensaje().trim());
-        return ResponseEntity.ok(mensajePedidoRepository.save(mensaje));
+            Map<String, Object> datos = new ObjectMapper().readValue(rawBody, Map.class);
+            String mensajeTexto = datos.get("mensaje") != null ? String.valueOf(datos.get("mensaje")).trim() : "";
+            String imagen = datos.get("imagen") != null ? String.valueOf(datos.get("imagen")).trim() : null;
+            String autorEmail = datos.get("autorEmail") != null ? String.valueOf(datos.get("autorEmail")).trim() : "";
+            String rolAutor = datos.get("rolAutor") != null ? String.valueOf(datos.get("rolAutor")).trim() : "CLIENTE";
+
+            boolean tieneTexto = !mensajeTexto.isEmpty();
+            boolean tieneImagen = imagen != null && !imagen.isBlank();
+
+            if (!tieneTexto && !tieneImagen) {
+                return ResponseEntity.badRequest().body("El mensaje no puede estar vacío.");
+            }
+
+            if (!pedidoRepository.existsById(pedidoId)) {
+                return ResponseEntity.notFound().build();
+            }
+
+            MensajePedido mensaje = new MensajePedido();
+            mensaje.setPedidoId(pedidoId);
+            mensaje.setAutorEmail(autorEmail);
+            mensaje.setRolAutor(rolAutor);
+            mensaje.setMensaje(tieneTexto ? mensajeTexto : null);
+            mensaje.setImagen(tieneImagen ? imagen : null);
+
+            return ResponseEntity.ok(mensajePedidoRepository.save(mensaje));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "No se pudo procesar el cuerpo del mensaje.",
+                "details", e.getMessage() != null ? e.getMessage() : "Error desconocido"
+            ));
+        }
     }
 
     @PatchMapping("/{pedidoId}/estado")

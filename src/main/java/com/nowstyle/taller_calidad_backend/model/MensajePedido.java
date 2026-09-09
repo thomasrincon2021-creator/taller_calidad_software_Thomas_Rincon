@@ -15,8 +15,11 @@ public class MensajePedido {
     private String autorEmail;
     private String rolAutor;
 
-    @Column(columnDefinition = "TEXT", nullable = false)
+    @Column(columnDefinition = "TEXT")
     private String mensaje;
+
+    @Column(columnDefinition = "LONGTEXT")
+    private String imagen;
 
     private LocalDateTime fecha = LocalDateTime.now();
 
@@ -31,5 +34,7 @@ public class MensajePedido {
     public void setRolAutor(String rolAutor) { this.rolAutor = rolAutor; }
     public String getMensaje() { return mensaje; }
     public void setMensaje(String mensaje) { this.mensaje = mensaje; }
+    public String getImagen() { return imagen; }
+    public void setImagen(String imagen) { this.imagen = imagen; }
     public LocalDateTime getFecha() { return fecha; }
 }

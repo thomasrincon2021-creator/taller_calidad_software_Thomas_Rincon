@@ -2,6 +2,45 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Canvas3D from '../../components/Canvas3D';
 
+const mapearColorPrenda = (valor) => {
+    if (!valor) return '#e3e3ec';
+
+    const texto = String(valor).trim();
+    if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(texto)) {
+        return texto;
+    }
+
+    const colorNormalizado = texto.toLowerCase();
+
+    const colores = {
+        negro: '#111111',
+        negra: '#111111',
+        blanco: '#ffffff',
+        blanca: '#ffffff',
+        rojo: '#dc2626',
+        roja: '#dc2626',
+        azul: '#2563eb',
+        verde: '#16a34a',
+        amarillo: '#facc15',
+        dorado: '#fbbf24',
+        gris: '#6b7280',
+        plateado: '#c0c0c0',
+        beige: '#d6b28b',
+        crema: '#fef3c7',
+        marron: '#7c2d12',
+        cafe: '#7c2d12',
+        brown: '#7c2d12',
+        morado: '#7c3aed',
+        lila: '#8b5cf6',
+        naranja: '#f97316',
+        rosado: '#ec4899',
+        rosa: '#ec4899'
+    };
+
+    const colorEncontrado = Object.entries(colores).find(([clave]) => colorNormalizado.includes(clave));
+    return colorEncontrado ? colorEncontrado[1] : '#e3e3ec';
+};
+
 const PersonalizarEstampado = () => {
     const location = useLocation();
     const navigate = useNavigate();
@@ -15,22 +54,14 @@ const PersonalizarEstampado = () => {
     }, [producto, navigate]);
 
     const colorPrendaHex = useMemo(() => {
-        if (producto?.colorHex) return producto.colorHex;
-        const color = (producto?.color || producto?.nombre || '').toLowerCase();
-        if (color.includes('negro') || color.includes('negra')) return '#111111';
-        if (color.includes('blanco') || color.includes('blanca')) return '#ffffff';
-        if (color.includes('rojo') || color.includes('roja')) return '#dc2626';
-        if (color.includes('azul')) return '#2563eb';
-        if (color.includes('verde')) return '#16a34a';
-        if (color.includes('amarillo')) return '#facc15';
-        return '#e3e3ec';
+        return mapearColorPrenda(producto?.colorHex || producto?.color || producto?.nombre || '');
     }, [producto]);
 
     const rutaModelo = useMemo(() => {
         if (producto?.modelo3d) return producto.modelo3d;
 
-        const descripcion = `${producto?.categoria || ''} ${producto?.nombre || ''}`.toLowerCase();
-        if (descripcion.includes('hoodie') || descripcion.includes('buzo') || descripcion.includes('sudadera')) {
+        const descripcion = `${producto?.categoria || ''} ${producto?.nombre || ''} ${producto?.descripcion || ''}`.toLowerCase();
+        if (descripcion.includes('hoodie') || descripcion.includes('hoody') || descripcion.includes('buzo') || descripcion.includes('sudadera')) {
             return '/modelos/hoodies_base.glb';
         }
         if (descripcion.includes('pantalon') || descripcion.includes('pantalón') || descripcion.includes('baggy')) {
@@ -43,17 +74,21 @@ const PersonalizarEstampado = () => {
     const [ubicacion, setUbicacion] = useState(() => rutaModelo.includes('pantalon') ? 'pantalon-frente' : 'frente');
     const [imagenes, setImagenes] = useState([]);
     const [colorTinta, setColorTinta] = useState('#ffffff');
+    const [colorTintaAdelante, setColorTintaAdelante] = useState('');
+    const [colorTintaAtras, setColorTintaAtras] = useState('');
     const [fuenteTexto, setFuenteTexto] = useState('Arial');
+    const [fuenteTextoAdelante, setFuenteTextoAdelante] = useState('Arial');
+    const [fuenteTextoAtras, setFuenteTextoAtras] = useState('Arial');
     const [tamanoTexto, setTamanoTexto] = useState(48);
     const [posicionesFrases, setPosicionesFrases] = useState({});
     const [notas, setNotas] = useState('');
 
     // Estados de frases según ubicación
     const [textoSimple, setTextoSimple] = useState('');
+    const [textoAtras, setTextoAtras] = useState('');
     const [textoLadoA, setTextoLadoA] = useState('');
     const [textoLadoB, setTextoLadoB] = useState('');
     const [textoAdelante, setTextoAdelante] = useState('');
-    const [textoAtras, setTextoAtras] = useState('');
     const [textoMangaIzq, setTextoMangaIzq] = useState('');
     const [textoMangaDer, setTextoMangaDer] = useState('');
 
@@ -96,7 +131,8 @@ const PersonalizarEstampado = () => {
             x: 0,
             y: 0,
             escala: 1,
-            rotacion: 0
+            rotacion: 0,
+            geometria: 'cuadrado'
         }));
 
         setImagenes(prev => [...prev, ...nuevasImagenes].slice(0, 3));
@@ -108,9 +144,11 @@ const PersonalizarEstampado = () => {
     };
 
     const actualizarImagen = (index, propiedad, valor) => {
-        setImagenes(prev => prev.map((imagen, indice) => indice === index
-            ? { ...imagen, [propiedad]: Number(valor) }
-            : imagen));
+        setImagenes(prev => prev.map((imagen, indice) => {
+            if (indice !== index) return imagen;
+            const valorFinal = propiedad === 'geometria' ? valor : Number(valor);
+            return { ...imagen, [propiedad]: valorFinal };
+        }));
     };
 
     const moverImagenDesdeVisor = (index, coordenadas) => {
@@ -120,8 +158,55 @@ const PersonalizarEstampado = () => {
     };
 
     const moverFraseDesdeVisor = (fraseId, coordenadas) => {
-        setPosicionesFrases(prev => ({ ...prev, [fraseId]: coordenadas }));
+        setPosicionesFrases(prev => ({
+            ...prev,
+            [fraseId]: {
+                ...(prev[fraseId] || {}),
+                ...coordenadas
+            }
+        }));
     };
+
+    const obtenerFraseTransform = (fraseId) => posicionesFrases?.[fraseId] || {};
+
+    const actualizarFraseTransform = (fraseId, propiedad, valor) => {
+        setPosicionesFrases(prev => ({
+            ...prev,
+            [fraseId]: {
+                ...(prev[fraseId] || {}),
+                [propiedad]: Number(valor)
+            }
+        }));
+    };
+
+    const moverFraseConFlechas = (fraseId, deltaX, deltaY) => {
+        setPosicionesFrases(prev => {
+            const actual = prev[fraseId] || { x: 0, y: 0 };
+            const invertidoEnEspalda = ['atras', 'ladoB'].includes(fraseId);
+            const siguienteX = Math.max(-4, Math.min(4, Number(actual.x || 0) + (invertidoEnEspalda ? -deltaX : deltaX)));
+            const siguienteY = Math.max(-5, Math.min(5, Number(actual.y || 0) + deltaY));
+
+            return {
+                ...prev,
+                [fraseId]: {
+                    ...actual,
+                    x: siguienteX,
+                    y: siguienteY
+                }
+            };
+        });
+    };
+
+    const ControlesFlechas = ({ fraseId }) => (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.35rem', marginTop: '0.5rem' }}>
+            <div />
+            <button type="button" onClick={() => moverFraseConFlechas(fraseId, 0, 0.15)} style={{ padding: '0.35rem', borderRadius: '0.35rem', border: '1px solid #3f3f46', backgroundColor: '#18181b', color: 'white', cursor: 'pointer' }}>↑</button>
+            <div />
+            <button type="button" onClick={() => moverFraseConFlechas(fraseId, -0.15, 0)} style={{ padding: '0.35rem', borderRadius: '0.35rem', border: '1px solid #3f3f46', backgroundColor: '#18181b', color: 'white', cursor: 'pointer' }}>←</button>
+            <button type="button" onClick={() => moverFraseConFlechas(fraseId, 0, -0.15)} style={{ padding: '0.35rem', borderRadius: '0.35rem', border: '1px solid #3f3f46', backgroundColor: '#18181b', color: 'white', cursor: 'pointer' }}>↓</button>
+            <button type="button" onClick={() => moverFraseConFlechas(fraseId, 0.15, 0)} style={{ padding: '0.35rem', borderRadius: '0.35rem', border: '1px solid #3f3f46', backgroundColor: '#18181b', color: 'white', cursor: 'pointer' }}>→</button>
+        </div>
+    );
 
     const convertirImagenADatos = (imagen) => new Promise((resolve) => {
         if (!imagen?.file) {
@@ -141,7 +226,13 @@ const PersonalizarEstampado = () => {
 
         let frases = {};
         if (tipoUbicacion === 'simple') {
-            frases = { principal: textoSimple };
+            if (ubicacion === 'ambos') {
+                frases = { adelante: textoSimple, atras: textoAtras };
+            } else if (ubicacion === 'espalda') {
+                frases = { atras: textoAtras || textoSimple };
+            } else {
+                frases = { adelante: textoSimple };
+            }
         } else if (tipoUbicacion === 'doble') {
             frases = { ladoA: textoLadoA, ladoB: textoLadoB };
         } else if (tipoUbicacion === 'cuadruple') {
@@ -155,13 +246,16 @@ const PersonalizarEstampado = () => {
             x: img.x,
             y: img.y,
             escala: img.escala,
-            rotacion: img.rotacion
+            rotacion: img.rotacion,
+            geometria: img.geometria || 'cuadrado'
         })));
 
         const datosEstampado = {
             ubicacion,
             colorTinta,
             estiloTexto: { color: colorTinta, fuente: fuenteTexto, tamano: tamanoTexto },
+            estiloTextoFrente: { color: colorTintaAdelante || colorTinta, fuente: fuenteTextoAdelante || fuenteTexto, tamano: tamanoTexto },
+            estiloTextoAtras: { color: colorTintaAtras || colorTinta, fuente: fuenteTextoAtras || fuenteTexto, tamano: tamanoTexto },
             posicionesFrases,
             notas,
             costoExtra: precioExtra,
@@ -212,14 +306,19 @@ const PersonalizarEstampado = () => {
                             x: img.x,
                             y: img.y,
                             escala: img.escala,
-                            rotacion: img.rotacion
+                            rotacion: img.rotacion,
+                            geometria: img.geometria || 'cuadrado'
                         }))}
                         frases={
-                            tipoActual === 'simple' ? { principal: textoSimple } :
-                            tipoActual === 'doble' ? { ladoA: textoLadoA, ladoB: textoLadoB } :
-                            { adelante: textoAdelante, atras: textoAtras, mangaIzq: textoMangaIzq, mangaDer: textoMangaDer }
+                            tipoActual === 'simple'
+                                ? { adelante: textoSimple, atras: textoAtras }
+                                : tipoActual === 'doble'
+                                    ? { ladoA: textoLadoA, ladoB: textoLadoB }
+                                    : { adelante: textoAdelante, atras: textoAtras, mangaIzq: textoMangaIzq, mangaDer: textoMangaDer }
                         }
                         estiloTexto={{ color: colorTinta, fuente: fuenteTexto, tamano: tamanoTexto }}
+                        estiloTextoFrente={{ color: colorTintaAdelante || colorTinta, fuente: fuenteTextoAdelante || fuenteTexto, tamano: tamanoTexto }}
+                        estiloTextoAtras={{ color: colorTintaAtras || colorTinta, fuente: fuenteTextoAtras || fuenteTexto, tamano: tamanoTexto }}
                         posicionesFrases={posicionesFrases}
                         colorPrenda={colorPrendaHex}
                         onMoveImage={moverImagenDesdeVisor}
@@ -273,6 +372,14 @@ const PersonalizarEstampado = () => {
                                             <label style={{ color: '#a1a1aa', fontSize: '0.7rem' }}>Giro
                                                 <input type="range" min="-180" max="180" step="1" value={img.rotacion} onChange={e => actualizarImagen(idx, 'rotacion', e.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.25rem' }} />
                                             </label>
+                                                            <label style={{ color: '#a1a1aa', fontSize: '0.7rem' }}>Forma
+                                                <select value={img.geometria || 'cuadrado'} onChange={e => actualizarImagen(idx, 'geometria', e.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.25rem', backgroundColor: '#09090b', border: '1px solid #27272a', color: 'white', padding: '0.2rem 0.35rem', borderRadius: '0.25rem' }}>
+                                                    <option value="cuadrado">Cuadrado</option>
+                                                    <option value="rectangular">Rectangular</option>
+                                                    <option value="circulo">Círculo</option>
+                                                    <option value="rombo">Rombo</option>
+                                                </select>
+                                            </label>
                                         </div>
                                     </div>
                                 ))}
@@ -284,8 +391,38 @@ const PersonalizarEstampado = () => {
                             <label style={{ color: 'white', fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', textTransform: 'uppercase' }}>3. Frase del estampado (opcional):</label>
                             
                             {tipoActual === 'simple' && (
-                                <div>
-                                    <input type="text" value={textoSimple} onChange={(e) => setTextoSimple(e.target.value)} placeholder="Ej: Estilo Urbano 2026" style={{ width: '100%', backgroundColor: '#09090b', border: '1px solid #27272a', color: 'white', padding: '0.6rem', borderRadius: '0.4rem' }} />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                    {ubicacion !== 'espalda' && (
+                                        <div>
+                                            <span style={{ color: '#a1a1aa', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>Frase adelante:</span>
+                                            <input type="text" value={textoSimple} onChange={(e) => setTextoSimple(e.target.value)} placeholder="Ej: Estilo Urbano 2026" style={{ width: '100%', backgroundColor: '#09090b', border: '1px solid #27272a', color: 'white', padding: '0.6rem', borderRadius: '0.4rem' }} />
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.65rem', marginTop: '0.5rem' }}>
+                                                <label style={{ color: '#a1a1aa', fontSize: '0.65rem' }}>Tamaño
+                                                    <input type="range" min="0.5" max="2" step="0.05" value={obtenerFraseTransform('adelante').escala ?? 1} onChange={(e) => actualizarFraseTransform('adelante', 'escala', e.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.25rem' }} />
+                                                </label>
+                                                <label style={{ color: '#a1a1aa', fontSize: '0.65rem' }}>Giro
+                                                    <input type="range" min="-180" max="180" step="1" value={obtenerFraseTransform('adelante').rotacion ?? 0} onChange={(e) => actualizarFraseTransform('adelante', 'rotacion', e.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.25rem' }} />
+                                                </label>
+                                            </div>
+                                            <ControlesFlechas fraseId="adelante" />
+                                        </div>
+                                    )}
+
+                                    {ubicacion !== 'frente' && (
+                                        <div>
+                                            <span style={{ color: '#a1a1aa', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>Frase atrás:</span>
+                                            <input type="text" value={textoAtras} onChange={(e) => setTextoAtras(e.target.value)} placeholder="Frase para la espalda" style={{ width: '100%', backgroundColor: '#09090b', border: '1px solid #27272a', color: 'white', padding: '0.6rem', borderRadius: '0.4rem' }} />
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.65rem', marginTop: '0.5rem' }}>
+                                                <label style={{ color: '#a1a1aa', fontSize: '0.65rem' }}>Tamaño
+                                                    <input type="range" min="0.5" max="2" step="0.05" value={obtenerFraseTransform('atras').escala ?? 1} onChange={(e) => actualizarFraseTransform('atras', 'escala', e.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.25rem' }} />
+                                                </label>
+                                                <label style={{ color: '#a1a1aa', fontSize: '0.65rem' }}>Giro
+                                                    <input type="range" min="-180" max="180" step="1" value={obtenerFraseTransform('atras').rotacion ?? 0} onChange={(e) => actualizarFraseTransform('atras', 'rotacion', e.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.25rem' }} />
+                                                </label>
+                                            </div>
+                                            <ControlesFlechas fraseId="atras" />
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -294,10 +431,28 @@ const PersonalizarEstampado = () => {
                                     <div>
                                         <span style={{ color: '#a1a1aa', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>Zona 1 / Izquierda / Adelante:</span>
                                         <input type="text" value={textoLadoA} onChange={(e) => setTextoLadoA(e.target.value)} placeholder="Frase para esta zona" style={{ width: '100%', backgroundColor: '#09090b', border: '1px solid #27272a', color: 'white', padding: '0.6rem', borderRadius: '0.4rem' }} />
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.65rem', marginTop: '0.5rem' }}>
+                                            <label style={{ color: '#a1a1aa', fontSize: '0.65rem' }}>Tamaño
+                                                <input type="range" min="0.5" max="2" step="0.05" value={obtenerFraseTransform('ladoA').escala ?? 1} onChange={(e) => actualizarFraseTransform('ladoA', 'escala', e.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.25rem' }} />
+                                            </label>
+                                            <label style={{ color: '#a1a1aa', fontSize: '0.65rem' }}>Giro
+                                                <input type="range" min="-180" max="180" step="1" value={obtenerFraseTransform('ladoA').rotacion ?? 0} onChange={(e) => actualizarFraseTransform('ladoA', 'rotacion', e.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.25rem' }} />
+                                            </label>
+                                        </div>
+                                        <ControlesFlechas fraseId="ladoA" />
                                     </div>
                                     <div>
                                         <span style={{ color: '#a1a1aa', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>Zona 2 / Derecha / Atrás:</span>
                                         <input type="text" value={textoLadoB} onChange={(e) => setTextoLadoB(e.target.value)} placeholder="Frase para la otra zona" style={{ width: '100%', backgroundColor: '#09090b', border: '1px solid #27272a', color: 'white', padding: '0.6rem', borderRadius: '0.4rem' }} />
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.65rem', marginTop: '0.5rem' }}>
+                                            <label style={{ color: '#a1a1aa', fontSize: '0.65rem' }}>Tamaño
+                                                <input type="range" min="0.5" max="2" step="0.05" value={obtenerFraseTransform('ladoB').escala ?? 1} onChange={(e) => actualizarFraseTransform('ladoB', 'escala', e.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.25rem' }} />
+                                            </label>
+                                            <label style={{ color: '#a1a1aa', fontSize: '0.65rem' }}>Giro
+                                                <input type="range" min="-180" max="180" step="1" value={obtenerFraseTransform('ladoB').rotacion ?? 0} onChange={(e) => actualizarFraseTransform('ladoB', 'rotacion', e.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.25rem' }} />
+                                            </label>
+                                        </div>
+                                        <ControlesFlechas fraseId="ladoB" />
                                     </div>
                                 </div>
                             )}
@@ -307,18 +462,54 @@ const PersonalizarEstampado = () => {
                                     <div>
                                         <span style={{ color: '#a1a1aa', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>Frase Adelante (Pecho):</span>
                                         <input type="text" value={textoAdelante} onChange={(e) => setTextoAdelante(e.target.value)} placeholder="Texto para el frente" style={{ width: '100%', backgroundColor: '#09090b', border: '1px solid #27272a', color: 'white', padding: '0.6rem', borderRadius: '0.4rem' }} />
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.65rem', marginTop: '0.5rem' }}>
+                                            <label style={{ color: '#a1a1aa', fontSize: '0.65rem' }}>Tamaño
+                                                <input type="range" min="0.5" max="2" step="0.05" value={obtenerFraseTransform('adelante').escala ?? 1} onChange={(e) => actualizarFraseTransform('adelante', 'escala', e.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.25rem' }} />
+                                            </label>
+                                            <label style={{ color: '#a1a1aa', fontSize: '0.65rem' }}>Giro
+                                                <input type="range" min="-180" max="180" step="1" value={obtenerFraseTransform('adelante').rotacion ?? 0} onChange={(e) => actualizarFraseTransform('adelante', 'rotacion', e.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.25rem' }} />
+                                            </label>
+                                        </div>
+                                        <ControlesFlechas fraseId="adelante" />
                                     </div>
                                     <div>
                                         <span style={{ color: '#a1a1aa', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>Frase Atrás (Espalda):</span>
                                         <input type="text" value={textoAtras} onChange={(e) => setTextoAtras(e.target.value)} placeholder="Texto para la espalda" style={{ width: '100%', backgroundColor: '#09090b', border: '1px solid #27272a', color: 'white', padding: '0.6rem', borderRadius: '0.4rem' }} />
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.65rem', marginTop: '0.5rem' }}>
+                                            <label style={{ color: '#a1a1aa', fontSize: '0.65rem' }}>Tamaño
+                                                <input type="range" min="0.5" max="2" step="0.05" value={obtenerFraseTransform('atras').escala ?? 1} onChange={(e) => actualizarFraseTransform('atras', 'escala', e.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.25rem' }} />
+                                            </label>
+                                            <label style={{ color: '#a1a1aa', fontSize: '0.65rem' }}>Giro
+                                                <input type="range" min="-180" max="180" step="1" value={obtenerFraseTransform('atras').rotacion ?? 0} onChange={(e) => actualizarFraseTransform('atras', 'rotacion', e.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.25rem' }} />
+                                            </label>
+                                        </div>
+                                        <ControlesFlechas fraseId="atras" />
                                     </div>
                                     <div>
                                         <span style={{ color: '#a1a1aa', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>Frase Manga Izquierda:</span>
                                         <input type="text" value={textoMangaIzq} onChange={(e) => setTextoMangaIzq(e.target.value)} placeholder="Texto manga izquierda" style={{ width: '100%', backgroundColor: '#09090b', border: '1px solid #27272a', color: 'white', padding: '0.6rem', borderRadius: '0.4rem' }} />
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.65rem', marginTop: '0.5rem' }}>
+                                            <label style={{ color: '#a1a1aa', fontSize: '0.65rem' }}>Tamaño
+                                                <input type="range" min="0.5" max="2" step="0.05" value={obtenerFraseTransform('mangaIzq').escala ?? 1} onChange={(e) => actualizarFraseTransform('mangaIzq', 'escala', e.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.25rem' }} />
+                                            </label>
+                                            <label style={{ color: '#a1a1aa', fontSize: '0.65rem' }}>Giro
+                                                <input type="range" min="-180" max="180" step="1" value={obtenerFraseTransform('mangaIzq').rotacion ?? 0} onChange={(e) => actualizarFraseTransform('mangaIzq', 'rotacion', e.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.25rem' }} />
+                                            </label>
+                                        </div>
+                                        <ControlesFlechas fraseId="mangaIzq" />
                                     </div>
                                     <div>
                                         <span style={{ color: '#a1a1aa', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>Frase Manga Derecha:</span>
                                         <input type="text" value={textoMangaDer} onChange={(e) => setTextoMangaDer(e.target.value)} placeholder="Texto manga derecha" style={{ width: '100%', backgroundColor: '#09090b', border: '1px solid #27272a', color: 'white', padding: '0.6rem', borderRadius: '0.4rem' }} />
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.65rem', marginTop: '0.5rem' }}>
+                                            <label style={{ color: '#a1a1aa', fontSize: '0.65rem' }}>Tamaño
+                                                <input type="range" min="0.5" max="2" step="0.05" value={obtenerFraseTransform('mangaDer').escala ?? 1} onChange={(e) => actualizarFraseTransform('mangaDer', 'escala', e.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.25rem' }} />
+                                            </label>
+                                            <label style={{ color: '#a1a1aa', fontSize: '0.65rem' }}>Giro
+                                                <input type="range" min="-180" max="180" step="1" value={obtenerFraseTransform('mangaDer').rotacion ?? 0} onChange={(e) => actualizarFraseTransform('mangaDer', 'rotacion', e.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.25rem' }} />
+                                            </label>
+                                        </div>
+                                        <ControlesFlechas fraseId="mangaDer" />
                                     </div>
                                 </div>
                             )}
@@ -328,16 +519,65 @@ const PersonalizarEstampado = () => {
                         <div>
                             <label style={{ color: 'white', fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', textTransform: 'uppercase' }}>4. Color de la tinta:</label>
                             <input type="color" value={colorTinta} onChange={(e) => setColorTinta(e.target.value)} style={{ width: '100%', height: '42px', backgroundColor: '#09090b', border: '1px solid #27272a', borderRadius: '0.4rem', cursor: 'pointer' }} />
-                            <label style={{ color: '#a1a1aa', fontSize: '0.75rem', display: 'block', marginTop: '0.75rem' }}>Tipo de letra</label>
-                            <select value={fuenteTexto} onChange={(e) => setFuenteTexto(e.target.value)} style={{ width: '100%', backgroundColor: '#09090b', border: '1px solid #27272a', color: 'white', padding: '0.6rem', borderRadius: '0.4rem' }}>
-                                <option value="Arial">Arial</option>
-                                <option value="Georgia">Georgia</option>
-                                <option value="Impact">Impact</option>
-                                <option value="Courier New">Courier New</option>
-                                <option value="Trebuchet MS">Trebuchet MS</option>
-                            </select>
-                            <label style={{ color: '#a1a1aa', fontSize: '0.75rem', display: 'block', marginTop: '0.75rem' }}>Tamaño de letra</label>
-                            <input type="range" min="24" max="80" step="2" value={tamanoTexto} onChange={(e) => setTamanoTexto(Number(e.target.value))} style={{ width: '100%' }} />
+                            {(ubicacion === 'ambos' || ubicacion === 'pantalon-ambos') ? (
+                                <>
+                                    <label style={{ color: '#a1a1aa', fontSize: '0.75rem', display: 'block', marginTop: '0.75rem' }}>Color de la frase adelante</label>
+                                    <input type="color" value={colorTintaAdelante} onChange={(e) => setColorTintaAdelante(e.target.value)} style={{ width: '100%', height: '42px', backgroundColor: '#09090b', border: '1px solid #27272a', borderRadius: '0.4rem', cursor: 'pointer' }} />
+                                    <label style={{ color: '#a1a1aa', fontSize: '0.75rem', display: 'block', marginTop: '0.75rem' }}>Tipo de letra adelante</label>
+                                    <select value={fuenteTextoAdelante} onChange={(e) => setFuenteTextoAdelante(e.target.value)} style={{ width: '100%', backgroundColor: '#09090b', border: '1px solid #27272a', color: 'white', padding: '0.6rem', borderRadius: '0.4rem' }}>
+                                        <option value="Arial">Arial</option>
+                                        <option value="Georgia">Georgia</option>
+                                        <option value="Impact">Impact</option>
+                                        <option value="Trebuchet MS">Trebuchet MS</option>
+                                        <option value="Courier New">Courier New</option>
+                                        <option value="Montserrat">Montserrat</option>
+                                        <option value="Poppins">Poppins</option>
+                                        <option value="Oswald">Oswald</option>
+                                        <option value="Bebas Neue">Bebas Neue</option>
+                                        <option value="Urbanist">Urbanist</option>
+                                        <option value="Orbitron">Orbitron</option>
+                                        <option value="Righteous">Righteous</option>
+                                        <option value="Segoe Print">Cursiva</option>
+                                    </select>
+                                    <label style={{ color: '#a1a1aa', fontSize: '0.75rem', display: 'block', marginTop: '0.75rem' }}>Color de la frase atrás</label>
+                                    <input type="color" value={colorTintaAtras} onChange={(e) => setColorTintaAtras(e.target.value)} style={{ width: '100%', height: '42px', backgroundColor: '#09090b', border: '1px solid #27272a', borderRadius: '0.4rem', cursor: 'pointer' }} />
+                                    <label style={{ color: '#a1a1aa', fontSize: '0.75rem', display: 'block', marginTop: '0.75rem' }}>Tipo de letra atrás</label>
+                                    <select value={fuenteTextoAtras} onChange={(e) => setFuenteTextoAtras(e.target.value)} style={{ width: '100%', backgroundColor: '#09090b', border: '1px solid #27272a', color: 'white', padding: '0.6rem', borderRadius: '0.4rem' }}>
+                                        <option value="Arial">Arial</option>
+                                        <option value="Georgia">Georgia</option>
+                                        <option value="Impact">Impact</option>
+                                        <option value="Trebuchet MS">Trebuchet MS</option>
+                                        <option value="Courier New">Courier New</option>
+                                        <option value="Montserrat">Montserrat</option>
+                                        <option value="Poppins">Poppins</option>
+                                        <option value="Oswald">Oswald</option>
+                                        <option value="Bebas Neue">Bebas Neue</option>
+                                        <option value="Urbanist">Urbanist</option>
+                                        <option value="Orbitron">Orbitron</option>
+                                        <option value="Righteous">Righteous</option>
+                                        <option value="Segoe Print">Cursiva</option>
+                                    </select>
+                                </>
+                            ) : (
+                                <>
+                                    <label style={{ color: '#a1a1aa', fontSize: '0.75rem', display: 'block', marginTop: '0.75rem' }}>Tipo de letra</label>
+                                    <select value={fuenteTexto} onChange={(e) => setFuenteTexto(e.target.value)} style={{ width: '100%', backgroundColor: '#09090b', border: '1px solid #27272a', color: 'white', padding: '0.6rem', borderRadius: '0.4rem' }}>
+                                        <option value="Arial">Arial</option>
+                                        <option value="Georgia">Georgia</option>
+                                        <option value="Impact">Impact</option>
+                                        <option value="Trebuchet MS">Trebuchet MS</option>
+                                        <option value="Courier New">Courier New</option>
+                                        <option value="Montserrat">Montserrat</option>
+                                        <option value="Poppins">Poppins</option>
+                                        <option value="Oswald">Oswald</option>
+                                        <option value="Bebas Neue">Bebas Neue</option>
+                                        <option value="Urbanist">Urbanist</option>
+                                        <option value="Orbitron">Orbitron</option>
+                                        <option value="Righteous">Righteous</option>
+                                        <option value="Segoe Print">Cursiva</option>
+                                    </select>
+                                </>
+                            )}
                         </div>
 
                         {/* 5. Notas */}

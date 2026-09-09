@@ -17,58 +17,123 @@ public class Usuario {
 
     private Boolean cuponPrimeraCompra = false;
 
-    // Se asigna "CLIENTE" por defecto al crear la instancia
+    // Rol por defecto
     private String rol = "CLIENTE";
 
-    // Campo para guardar la imagen (soporta Base64 largo)
+    // Estado del usuario
+    // true = activo
+    // false = inactivo
+    private Boolean activo = true;
+
+    // Foto en Base64
     @Lob
     @Column(name = "foto", columnDefinition = "LONGTEXT")
-    private String foto;    
+    private String foto;
 
-    // Constructores
+    // Constructor vacío
     public Usuario() {}
 
-    // Constructor sin especificar rol
+    // Constructor sin rol
     public Usuario(String usuario, String email, String telefono, String password) {
         this.usuario = usuario;
         this.email = email;
         this.telefono = telefono;
         this.password = password;
         this.rol = "CLIENTE";
+        this.activo = true;
     }
 
-    // Constructor completo con rol y foto
-    public Usuario(String usuario, String email, String telefono, String password, String rol, String foto) {
+    // Constructor completo
+    public Usuario(
+            String usuario,
+            String email,
+            String telefono,
+            String password,
+            String rol,
+            String foto
+    ) {
         this.usuario = usuario;
         this.email = email;
         this.telefono = telefono;
         this.password = password;
         this.rol = (rol != null && !rol.isBlank()) ? rol : "CLIENTE";
         this.foto = foto;
+        this.activo = true;
     }
 
-    // Getters y Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    // =========================
+    // GETTERS Y SETTERS
+    // =========================
 
-    public String getUsuario() { return usuario; }
-    public void setUsuario(String usuario) { this.usuario = usuario; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getTelefono() { return telefono; }
-    public void setTelefono(String telefono) { this.telefono = telefono; }
+    public String getUsuario() {
+        return usuario;
+    }
 
-    public String getPassword() { return password; }
-    public void setPassword(String password) { this.password = password; }
+    public void setUsuario(String usuario) {
+        this.usuario = usuario;
+    }
 
-    public Boolean getCuponPrimeraCompra() { return cuponPrimeraCompra; }
-    public void setCuponPrimeraCompra(Boolean cuponPrimeraCompra) { this.cuponPrimeraCompra = cuponPrimeraCompra; }
+    public String getEmail() {
+        return email;
+    }
 
-    public String getRol() { return rol; }
-    public void setRol(String rol) { this.rol = rol; }
+    public void setEmail(String email) {
+        this.email = email;
+    }
 
-    public String getFoto() { return foto; }
-    public void setFoto(String foto) { this.foto = foto; }
+    public String getTelefono() {
+        return telefono;
+    }
+
+    public void setTelefono(String telefono) {
+        this.telefono = telefono;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public Boolean getCuponPrimeraCompra() {
+        return cuponPrimeraCompra;
+    }
+
+    public void setCuponPrimeraCompra(Boolean cuponPrimeraCompra) {
+        this.cuponPrimeraCompra = cuponPrimeraCompra;
+    }
+
+    public String getRol() {
+        return rol;
+    }
+
+    public void setRol(String rol) {
+        this.rol = rol;
+    }
+
+    public Boolean getActivo() {
+        return activo;
+    }
+
+    public void setActivo(Boolean activo) {
+        this.activo = activo;
+    }
+
+    public String getFoto() {
+        return foto;
+    }
+
+    public void setFoto(String foto) {
+        this.foto = foto;
+    }
 }

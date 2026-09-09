@@ -15,6 +15,15 @@ public class DetallePedido {
     private Integer cantidad;
     private String talla;
     private Double precioUnitario;
+    private String modelo3d;
+    private String colorHex;
+    private String categoria;
+
+    @Column(columnDefinition = "LONGTEXT")
+    private String imagen;
+
+    @Column(columnDefinition = "LONGTEXT")
+    private String personalizacion;
 
     public DetallePedido() {}
 
@@ -36,4 +45,19 @@ public class DetallePedido {
 
     public Double getPrecioUnitario() { return precioUnitario; }
     public void setPrecioUnitario(Double precioUnitario) { this.precioUnitario = precioUnitario; }
+
+    public String getModelo3d() { return modelo3d; }
+    public void setModelo3d(String modelo3d) { this.modelo3d = modelo3d; }
+
+    public String getColorHex() { return colorHex; }
+    public void setColorHex(String colorHex) { this.colorHex = colorHex; }
+
+    public String getCategoria() { return categoria; }
+    public void setCategoria(String categoria) { this.categoria = categoria; }
+
+    public String getImagen() { return imagen; }
+    public void setImagen(String imagen) { this.imagen = imagen; }
+
+    public String getPersonalizacion() { return personalizacion; }
+    public void setPersonalizacion(String personalizacion) { this.personalizacion = personalizacion; }
 }
