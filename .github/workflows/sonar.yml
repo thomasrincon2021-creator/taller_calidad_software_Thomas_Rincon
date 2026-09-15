@@ -27,6 +27,8 @@ jobs:
 
       - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v4
+      - name: Dar permisos a Gradle Wrapper
+        run: chmod +x ./gradlew
 
       - name: Ejecutar pruebas y generar cobertura
         run: ./gradlew clean test jacocoTestReport
