@@ -33,8 +33,10 @@ jobs:
 
       - name: Verificar reporte de cobertura
         run: |
-          ls -la build/reports/jacoco/test/
-          test -f build/reports/jacoco/test/jacocoTestReport.xml
+          echo "=== BUSCANDO REPORTE JACOCO ==="
+          find build -name "jacocoTestReport.xml" -type f -print
+          echo "=== ARCHIVOS DE LA CARPETA ==="
+          ls -R build/reports/jacoco/test/
 
       - name: Analizar con SonarCloud
         uses: SonarSource/sonarqube-scan-action@v6
