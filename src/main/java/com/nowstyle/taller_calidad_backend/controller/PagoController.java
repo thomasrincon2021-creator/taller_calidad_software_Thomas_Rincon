@@ -746,7 +746,7 @@ public class PagoController {
     }
 
     /**
-     * Crea la respuesta de error de validación.
+     * Crea la respuesta de error de validación..
      */
     private ResponseEntity<?> respuestaErrorValidacion(
         IllegalStateException e
