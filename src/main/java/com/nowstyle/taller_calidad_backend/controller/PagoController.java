@@ -94,24 +94,8 @@ public class PagoController {
         private Double totalFinal;
         private List<DetallePedido> detalles;
 
-        public DatosPedido(
-            String usuarioEmail,
-            String direccionEnvio,
-            String ciudadEnvio,
-            Double subtotal,
-            Double descuentoAplicado,
-            Double costoEnvio,
-            Double totalFinal,
-            List<DetallePedido> detalles
-        ) {
-            this.usuarioEmail = usuarioEmail;
-            this.direccionEnvio = direccionEnvio;
-            this.ciudadEnvio = ciudadEnvio;
-            this.subtotal = subtotal;
-            this.descuentoAplicado = descuentoAplicado;
-            this.costoEnvio = costoEnvio;
-            this.totalFinal = totalFinal;
-            this.detalles = detalles;
+        public DatosPedido() {
+            // Constructor vacío para facilitar la creación del objeto.
         }
     }
 
@@ -900,16 +884,16 @@ public class PagoController {
             );
 
             DatosPedido datosPedido =
-                new DatosPedido(
-                    usuarioEmail,
-                    direccionEnvio,
-                    ciudadEnvio,
-                    subtotal,
-                    descuentoAplicado,
-                    costoEnvio,
-                    totalFinal,
-                    detalles
-                );
+                new DatosPedido();
+
+            datosPedido.usuarioEmail = usuarioEmail;
+            datosPedido.direccionEnvio = direccionEnvio;
+            datosPedido.ciudadEnvio = ciudadEnvio;
+            datosPedido.subtotal = subtotal;
+            datosPedido.descuentoAplicado = descuentoAplicado;
+            datosPedido.costoEnvio = costoEnvio;
+            datosPedido.totalFinal = totalFinal;
+            datosPedido.detalles = detalles;
 
             Pedido pedido =
                 guardarPedido(datosPedido);

@@ -294,10 +294,10 @@ public class UsuarioController {
 
             nuevoUsuario.setCuponPrimeraCompra(true);
 
-            // Todo usuario nuevo inicia activo
+            // Estado inicial del nuevo usuario
             nuevoUsuario.setActivo(true);
 
-            // Todo usuario nuevo inicia como CLIENTE
+            // Rol inicial del nuevo usuario
             nuevoUsuario.setRol(ROL_CLIENTE);
 
             Usuario guardado =
@@ -329,7 +329,7 @@ public class UsuarioController {
         if (!usuarioOpt.isPresent()) {
 
             usuarioOpt =
-                    usuarioRepository.findByUsuario(
+                    usuarioRepository.findByNombreUsuario(
                             loginRequest.getEmail()
                     );
         }

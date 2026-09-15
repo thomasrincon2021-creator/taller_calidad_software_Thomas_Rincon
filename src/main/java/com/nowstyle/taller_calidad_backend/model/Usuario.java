@@ -12,7 +12,9 @@ public class Usuario {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String usuario;
+    @Column(name = "usuario")
+    private String nombreUsuario;
+
     private String email;
     private String telefono;
     private String password;
@@ -38,8 +40,13 @@ public class Usuario {
     }
 
     // Constructor sin rol
-    public Usuario(String usuario, String email, String telefono, String password) {
-        this.usuario = usuario;
+    public Usuario(
+            String nombreUsuario,
+            String email,
+            String telefono,
+            String password
+    ) {
+        this.nombreUsuario = nombreUsuario;
         this.email = email;
         this.telefono = telefono;
         this.password = password;
@@ -49,14 +56,14 @@ public class Usuario {
 
     // Constructor completo
     public Usuario(
-            String usuario,
+            String nombreUsuario,
             String email,
             String telefono,
             String password,
             String rol,
             String foto
     ) {
-        this.usuario = usuario;
+        this.nombreUsuario = nombreUsuario;
         this.email = email;
         this.telefono = telefono;
         this.password = password;
@@ -78,11 +85,11 @@ public class Usuario {
     }
 
     public String getUsuario() {
-        return usuario;
+        return nombreUsuario;
     }
 
     public void setUsuario(String usuario) {
-        this.usuario = usuario;
+        this.nombreUsuario = usuario;
     }
 
     public String getEmail() {
