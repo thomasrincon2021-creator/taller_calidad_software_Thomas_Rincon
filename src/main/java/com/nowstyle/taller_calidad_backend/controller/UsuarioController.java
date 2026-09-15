@@ -11,24 +11,27 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/api/usuarios")
 @CrossOrigin(origins = "http://localhost:5173")
 public class UsuarioController {
 
-    private static final String USUARIO_NO_ENCONTRADO = "Usuario no encontrado.";
+    private static final String USUARIO_NO_ENCONTRADO =
+            "Usuario no encontrado.";
+
     private static final String EMAIL = "email";
+
     private static final String ROL_CLIENTE = "CLIENTE";
+
     private static final String MENSAJE_ERROR_CORREO =
             "El correo electrónico no está asociado a ninguna cuenta.";
 
-    private static final Pattern PATRON_SPAM_USUARIO =
-            Pattern.compile("(?i)(asf|asd|qwe|zxc|(.)\\2{2,})");
+    private static final String MENSAJE_USUARIO_INVALIDO =
+            "El nombre de usuario no es válido o parece spam.";
 
-    private static final Pattern PATRON_CORREO_REPETIDO =
-            Pattern.compile("(.)\\1{2,}");
+    private static final String MENSAJE_CORREO_INVALIDO =
+            "Por favor ingresa un correo de Gmail real y válido.";
 
     @Autowired
     private UsuarioRepository usuarioRepository;
@@ -55,9 +58,11 @@ public class UsuarioController {
     @GetMapping("/{id}")
     public ResponseEntity<?> obtenerUsuarioPorId(@PathVariable Long id) {
 
-        Optional<Usuario> usuarioOpt = usuarioRepository.findById(id);
+        Optional<Usuario> usuarioOpt =
+                usuarioRepository.findById(id);
 
         if (!usuarioOpt.isPresent()) {
+
             return ResponseEntity.status(404)
                     .body(USUARIO_NO_ENCONTRADO);
         }
@@ -70,44 +75,56 @@ public class UsuarioController {
     // =========================================================
 
     @PostMapping("/registro")
-    public ResponseEntity<?> registrarUsuario(@RequestBody Usuario usuario) {
+    public ResponseEntity<?> registrarUsuario(
+            @RequestBody Usuario usuario
+    ) {
 
         // Validar usuario contra spam
         if (
             usuario.getUsuario() == null ||
             usuario.getUsuario().length() < 4 ||
-            PATRON_SPAM_USUARIO.matcher(usuario.getUsuario()).find()
+            contienePatronSpam(usuario.getUsuario())
         ) {
+
             return ResponseEntity.badRequest()
-                    .body("El nombre de usuario no es válido o parece spam.");
+                    .body(MENSAJE_USUARIO_INVALIDO);
         }
 
         // Validar Gmail
         if (
             usuario.getEmail() == null ||
-            !usuario.getEmail().toLowerCase().endsWith("@gmail.com")
+            !usuario.getEmail()
+                    .toLowerCase()
+                    .endsWith("@gmail.com")
         ) {
+
             return ResponseEntity.badRequest()
-                    .body("El correo debe ser estrictamente una cuenta @gmail.com.");
+                    .body(
+                        "El correo debe ser estrictamente una cuenta @gmail.com."
+                    );
         }
 
         String usernameEmail =
-                usuario.getEmail().toLowerCase().split("@")[0];
+                usuario.getEmail()
+                        .toLowerCase()
+                        .split("@")[0];
 
         if (
             usernameEmail.length() < 4 ||
-            !usernameEmail.matches(".*[aeiouáéíóú].*") ||
-            PATRON_CORREO_REPETIDO.matcher(usernameEmail).find()
+            !contieneVocal(usernameEmail) ||
+            contieneCaracterRepetido(usernameEmail)
         ) {
+
             return ResponseEntity.badRequest()
-                    .body("Por favor ingresa un correo de Gmail real y válido.");
+                    .body(MENSAJE_CORREO_INVALIDO);
         }
 
         // Validar teléfono colombiano
         if (
             usuario.getTelefono() == null ||
-            !usuario.getTelefono().matches("^\\+57 3\\d{9}$")
+            !telefonoColombianoValido(usuario.getTelefono())
         ) {
+
             return ResponseEntity.badRequest()
                     .body(
                         "El número de teléfono debe ser válido para Colombia (+57 3XXXXXXXXX)."
@@ -119,24 +136,126 @@ public class UsuarioController {
             usuario.getPassword() == null ||
             usuario.getPassword().length() < 8
         ) {
+
             return ResponseEntity.badRequest()
-                    .body("La contraseña debe tener al menos 8 caracteres.");
+                    .body(
+                        "La contraseña debe tener al menos 8 caracteres."
+                    );
         }
 
         // Verificar correo existente
         if (
-            usuarioRepository.findByEmail(usuario.getEmail()).isPresent()
+            usuarioRepository
+                    .findByEmail(usuario.getEmail())
+                    .isPresent()
         ) {
+
             return ResponseEntity.badRequest()
-                    .body("El correo electrónico ya está registrado.");
+                    .body(
+                        "El correo electrónico ya está registrado."
+                    );
         }
 
         // Enviar código
-        emailService.enviarCodigoRegistro(usuario.getEmail());
+        emailService.enviarCodigoRegistro(
+                usuario.getEmail()
+        );
 
         return ResponseEntity.ok(
                 "Código enviado al correo electrónico."
         );
+    }
+
+    // =========================================================
+    // VALIDACIONES SIN EXPRESIONES REGULARES COMPLEJAS
+    // =========================================================
+
+    /**
+     * Verifica patrones de texto considerados spam.
+     */
+    private boolean contienePatronSpam(String usuario) {
+
+        String texto = usuario.toLowerCase();
+
+        if (
+            texto.contains("asf") ||
+            texto.contains("asd") ||
+            texto.contains("qwe") ||
+            texto.contains("zxc")
+        ) {
+            return true;
+        }
+
+        return contieneCaracterRepetido(texto);
+    }
+
+    /**
+     * Verifica si un texto contiene tres caracteres consecutivos iguales.
+     */
+    private boolean contieneCaracterRepetido(String texto) {
+
+        for (int i = 0; i < texto.length() - 2; i++) {
+
+            char actual = texto.charAt(i);
+
+            if (
+                texto.charAt(i + 1) == actual &&
+                texto.charAt(i + 2) == actual
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Verifica si el texto contiene al menos una vocal.
+     */
+    private boolean contieneVocal(String texto) {
+
+        String textoMinuscula =
+                texto.toLowerCase();
+
+        return textoMinuscula.indexOf('a') >= 0
+                || textoMinuscula.indexOf('e') >= 0
+                || textoMinuscula.indexOf('i') >= 0
+                || textoMinuscula.indexOf('o') >= 0
+                || textoMinuscula.indexOf('u') >= 0
+                || textoMinuscula.indexOf('á') >= 0
+                || textoMinuscula.indexOf('é') >= 0
+                || textoMinuscula.indexOf('í') >= 0
+                || textoMinuscula.indexOf('ó') >= 0
+                || textoMinuscula.indexOf('ú') >= 0;
+    }
+
+    /**
+     * Verifica que el teléfono tenga el formato colombiano esperado.
+     */
+    private boolean telefonoColombianoValido(String telefono) {
+
+        if (telefono == null) {
+            return false;
+        }
+
+        if (!telefono.startsWith("+57 3")) {
+            return false;
+        }
+
+        String numero = telefono.substring(5);
+
+        if (numero.length() != 8) {
+            return false;
+        }
+
+        for (int i = 0; i < numero.length(); i++) {
+
+            if (!Character.isDigit(numero.charAt(i))) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // =========================================================
@@ -159,10 +278,19 @@ public class UsuarioController {
 
             Usuario nuevoUsuario = new Usuario();
 
-            nuevoUsuario.setUsuario(userData.get("usuario"));
+            nuevoUsuario.setUsuario(
+                    userData.get("usuario")
+            );
+
             nuevoUsuario.setEmail(email);
-            nuevoUsuario.setTelefono(userData.get("telefono"));
-            nuevoUsuario.setPassword(userData.get("password"));
+
+            nuevoUsuario.setTelefono(
+                    userData.get("telefono")
+            );
+
+            nuevoUsuario.setPassword(
+                    userData.get("password")
+            );
 
             nuevoUsuario.setCuponPrimeraCompra(true);
 
@@ -179,7 +307,9 @@ public class UsuarioController {
         }
 
         return ResponseEntity.status(400)
-                .body("Código de verificación incorrecto.");
+                .body(
+                    "Código de verificación incorrecto."
+                );
     }
 
     // =========================================================
@@ -192,7 +322,9 @@ public class UsuarioController {
     ) {
 
         Optional<Usuario> usuarioOpt =
-                usuarioRepository.findByEmail(loginRequest.getEmail());
+                usuarioRepository.findByEmail(
+                        loginRequest.getEmail()
+                );
 
         if (!usuarioOpt.isPresent()) {
 
@@ -249,7 +381,9 @@ public class UsuarioController {
         if (email == null || email.isEmpty()) {
 
             return ResponseEntity.badRequest()
-                    .body("El correo es obligatorio.");
+                    .body(
+                        "El correo es obligatorio."
+                    );
         }
 
         Optional<Usuario> usuarioOpt =
@@ -295,7 +429,8 @@ public class UsuarioController {
 
         String email = request.get(EMAIL);
         String codigo = request.get("codigo");
-        String nuevaPassword = request.get("nuevaPassword");
+        String nuevaPassword =
+                request.get("nuevaPassword");
 
         if (
             nuevaPassword == null ||
@@ -309,7 +444,10 @@ public class UsuarioController {
         }
 
         boolean codigoValido =
-                emailService.validarCodigo(email, codigo);
+                emailService.validarCodigo(
+                        email,
+                        codigo
+                );
 
         if (!codigoValido) {
 
