@@ -17,6 +17,7 @@ public class OrdenDTO {
     private List<ItemDTO> items;
 
     public OrdenDTO() {
+        // Constructor vacío requerido para la deserialización del DTO.
     }
 
     public String getId() {
@@ -108,6 +109,7 @@ public class OrdenDTO {
     }
 
     public static class ItemDTO {
+
         private Long productoId;
         private String nombre;
         private String titulo;
@@ -121,6 +123,7 @@ public class OrdenDTO {
         private String personalizacion;
 
         public ItemDTO() {
+            // Constructor vacío requerido para la deserialización del DTO.
         }
 
         public Long getProductoId() {
