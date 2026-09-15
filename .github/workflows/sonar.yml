@@ -31,6 +31,11 @@ jobs:
       - name: Ejecutar pruebas y generar cobertura
         run: ./gradlew clean test jacocoTestReport
 
+      - name: Verificar reporte de cobertura
+        run: |
+          ls -la build/reports/jacoco/test/
+          test -f build/reports/jacoco/test/jacocoTestReport.xml
+
       - name: Analizar con SonarCloud
         uses: SonarSource/sonarqube-scan-action@v6
         env:
