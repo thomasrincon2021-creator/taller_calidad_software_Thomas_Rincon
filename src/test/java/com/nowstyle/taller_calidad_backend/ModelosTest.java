@@ -2,7 +2,6 @@ package com.nowstyle.taller_calidad_backend;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.time.ZoneId;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 
@@ -84,12 +83,7 @@ class ModelosTest {
         assertNotNull(pedido.getFecha());
         assertNotNull(pedido.getItems());
 
-        assertEquals(
-                ZoneId.of("America/Bogota"),
-                ZoneId.systemDefault() == ZoneId.of("America/Bogota")
-                        ? ZoneId.of("America/Bogota")
-                        : ZoneId.of("America/Bogota")
-        );
+
 
         pedido.setId(10L);
         pedido.setUsuarioEmail("cliente@gmail.com");
