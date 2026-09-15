@@ -2,6 +2,11 @@ package com.nowstyle.taller_calidad_backend.dto;
 
 import java.util.List;
 
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
 public class OrdenDTO {
 
     private String id;
@@ -20,94 +25,8 @@ public class OrdenDTO {
         // Constructor vacío requerido para la deserialización del DTO.
     }
 
-    public String getId() {
-        return id;
-    }
-
-    public void setId(String id) {
-        this.id = id;
-    }
-
-    public String getUsuarioEmail() {
-        return usuarioEmail;
-    }
-
-    public void setUsuarioEmail(String usuarioEmail) {
-        this.usuarioEmail = usuarioEmail;
-    }
-
-    public String getDireccionEnvio() {
-        return direccionEnvio;
-    }
-
-    public void setDireccionEnvio(String direccionEnvio) {
-        this.direccionEnvio = direccionEnvio;
-    }
-
-    public String getCiudadEnvio() {
-        return ciudadEnvio;
-    }
-
-    public void setCiudadEnvio(String ciudadEnvio) {
-        this.ciudadEnvio = ciudadEnvio;
-    }
-
-    public Double getSubtotal() {
-        return subtotal;
-    }
-
-    public void setSubtotal(Double subtotal) {
-        this.subtotal = subtotal;
-    }
-
-    public Double getDescuento() {
-        return descuento;
-    }
-
-    public void setDescuento(Double descuento) {
-        this.descuento = descuento;
-    }
-
-    public Double getCostoEnvio() {
-        return costoEnvio;
-    }
-
-    public void setCostoEnvio(Double costoEnvio) {
-        this.costoEnvio = costoEnvio;
-    }
-
-    public Double getTotal() {
-        return total;
-    }
-
-    public void setTotal(Double total) {
-        this.total = total;
-    }
-
-    public String getCupon() {
-        return cupon;
-    }
-
-    public void setCupon(String cupon) {
-        this.cupon = cupon;
-    }
-
-    public String getMensajePedido() {
-        return mensajePedido;
-    }
-
-    public void setMensajePedido(String mensajePedido) {
-        this.mensajePedido = mensajePedido;
-    }
-
-    public List<ItemDTO> getItems() {
-        return items;
-    }
-
-    public void setItems(List<ItemDTO> items) {
-        this.items = items;
-    }
-
+    @Getter
+    @Setter
     public static class ItemDTO {
 
         private Long productoId;
@@ -124,94 +43,6 @@ public class OrdenDTO {
 
         public ItemDTO() {
             // Constructor vacío requerido para la deserialización del DTO.
-        }
-
-        public Long getProductoId() {
-            return productoId;
-        }
-
-        public void setProductoId(Long productoId) {
-            this.productoId = productoId;
-        }
-
-        public String getNombre() {
-            return nombre;
-        }
-
-        public void setNombre(String nombre) {
-            this.nombre = nombre;
-        }
-
-        public String getTitulo() {
-            return titulo;
-        }
-
-        public void setTitulo(String titulo) {
-            this.titulo = titulo;
-        }
-
-        public String getTalla() {
-            return talla;
-        }
-
-        public void setTalla(String talla) {
-            this.talla = talla;
-        }
-
-        public Integer getCantidad() {
-            return cantidad;
-        }
-
-        public void setCantidad(Integer cantidad) {
-            this.cantidad = cantidad;
-        }
-
-        public Double getPrecioUnitario() {
-            return precioUnitario;
-        }
-
-        public void setPrecioUnitario(Double precioUnitario) {
-            this.precioUnitario = precioUnitario;
-        }
-
-        public String getModelo3d() {
-            return modelo3d;
-        }
-
-        public void setModelo3d(String modelo3d) {
-            this.modelo3d = modelo3d;
-        }
-
-        public String getColorHex() {
-            return colorHex;
-        }
-
-        public void setColorHex(String colorHex) {
-            this.colorHex = colorHex;
-        }
-
-        public String getCategoria() {
-            return categoria;
-        }
-
-        public void setCategoria(String categoria) {
-            this.categoria = categoria;
-        }
-
-        public String getImagen() {
-            return imagen;
-        }
-
-        public void setImagen(String imagen) {
-            this.imagen = imagen;
-        }
-
-        public String getPersonalizacion() {
-            return personalizacion;
-        }
-
-        public void setPersonalizacion(String personalizacion) {
-            this.personalizacion = personalizacion;
         }
     }
 }
