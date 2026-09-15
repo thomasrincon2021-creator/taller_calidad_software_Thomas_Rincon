@@ -31,6 +31,13 @@ jobs:
       - name: Dar permisos a Gradle Wrapper
         run: chmod +x ./gradlew
 
+      - name: Verificar archivos de prueba
+        run: |
+          echo "=== TEST ==="
+          cat src/test/java/com/nowstyle/taller_calidad_backend/TallerCalidadBackendApplicationTests.java
+          echo "=== PROPERTIES ==="
+          cat src/test/resources/application-test.properties
+
       - name: Ejecutar pruebas y generar cobertura
         run: ./gradlew clean test jacocoTestReport
 
