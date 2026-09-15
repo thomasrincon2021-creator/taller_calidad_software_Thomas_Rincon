@@ -1,10 +1,13 @@
 package com.nowstyle.taller_calidad_backend.service;
 
 import jakarta.mail.internet.MimeMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -12,41 +15,85 @@ import java.util.Random;
 @Service
 public class EmailService {
 
+    private static final Logger LOGGER =
+        LoggerFactory.getLogger(EmailService.class);
+
     @Autowired
     private JavaMailSender mailSender;
 
     private final Map<String, String> codigosPendientes = new HashMap<>();
+    private final Random random = new Random();
 
     // 1. Método para el Registro de Cuenta
     public void enviarCodigoRegistro(String emailDestino) {
         String tituloHtml = "Verificación de cuenta";
-        String mensajeHtml = "Hola, nos alegra mucho que quieras unirte a nosotros. Usa el siguiente código para completar tu registro de forma segura:";
+        String mensajeHtml =
+            "Hola, nos alegra mucho que quieras unirte a nosotros. "
+            + "Usa el siguiente código para completar tu registro de forma segura:";
         String asunto = "✨ Código de verificación - NowStyle";
-        
-        enviarCorreo(emailDestino, asunto, tituloHtml, mensajeHtml);
+
+        enviarCorreo(
+            emailDestino,
+            asunto,
+            tituloHtml,
+            mensajeHtml
+        );
     }
 
     // 2. Método para la Recuperación de Contraseña
     public void enviarCodigoRecuperacion(String emailDestino) {
         String tituloHtml = "Recuperación de contraseña";
-        String mensajeHtml = "Hola, hemos recibido una solicitud para restablecer tu contraseña. Usa el siguiente código para continuar con el proceso:";
-        String asunto = "🔑 Código de recuperación de contraseña - NowStyle";
-        
-        enviarCorreo(emailDestino, asunto, tituloHtml, mensajeHtml);
+        String mensajeHtml =
+            "Hola, hemos recibido una solicitud para restablecer tu contraseña. "
+            + "Usa el siguiente código para continuar con el proceso:";
+        String asunto =
+            "🔑 Código de recuperación de contraseña - NowStyle";
+
+        enviarCorreo(
+            emailDestino,
+            asunto,
+            tituloHtml,
+            mensajeHtml
+        );
     }
 
     // Método interno genérico para armar y enviar el HTML
-    private void enviarCorreo(String emailDestino, String asunto, String tituloHtml, String mensajeHtml) {
-        String codigo = String.format("%06d", new Random().nextInt(999999));
-        codigosPendientes.put(emailDestino, codigo);
+    private void enviarCorreo(
+        String emailDestino,
+        String asunto,
+        String tituloHtml,
+        String mensajeHtml
+    ) {
 
-        System.out.println("==================================================");
-        System.out.println(" > CÓDIGO PARA " + emailDestino + " (" + tituloHtml + "): " + codigo);
-        System.out.println("==================================================");
+        String codigo =
+            String.format(
+                "%06d",
+                random.nextInt(999999)
+            );
+
+        codigosPendientes.put(
+            emailDestino,
+            codigo
+        );
+
+        LOGGER.info(
+            "Código generado para {} ({}): {}",
+            emailDestino,
+            tituloHtml,
+            codigo
+        );
 
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            MimeMessage message =
+                mailSender.createMimeMessage();
+
+            MimeMessageHelper helper =
+                new MimeMessageHelper(
+                    message,
+                    true,
+                    "UTF-8"
+                );
 
             helper.setTo(emailDestino);
             helper.setSubject(asunto);
@@ -92,25 +139,57 @@ public class EmailService {
                     </div>
                 </div>
                 """
-                .replace("REPLACE_TITLE_HERE", tituloHtml)
-                .replace("REPLACE_MESSAGE_HERE", mensajeHtml)
-                .replace("REPLACE_CODE_HERE", codigo);
+                .replace(
+                    "REPLACE_TITLE_HERE",
+                    tituloHtml
+                )
+                .replace(
+                    "REPLACE_MESSAGE_HERE",
+                    mensajeHtml
+                )
+                .replace(
+                    "REPLACE_CODE_HERE",
+                    codigo
+                );
 
-            helper.setText(htmlContent, true);
+            helper.setText(
+                htmlContent,
+                true
+            );
+
             mailSender.send(message);
 
         } catch (Exception e) {
-            System.err.println("Advertencia: No se pudo enviar el correo físico por un error de red/SSL: " + e.getMessage());
-            System.err.println("El proceso continuará utilizando el código generado en la consola.");
+
+            LOGGER.error(
+                "No se pudo enviar el correo físico por un error de red/SSL: {}",
+                e.getMessage(),
+                e
+            );
+
+            LOGGER.warn(
+                "El proceso continuará utilizando el código generado."
+            );
         }
     }
 
-    public boolean validarCodigo(String email, String codigoIngresado) {
-        String codigoGuardado = codigosPendientes.get(email);
-        if (codigoGuardado != null && codigoGuardado.equals(codigoIngresado)) {
+    public boolean validarCodigo(
+        String email,
+        String codigoIngresado
+    ) {
+
+        String codigoGuardado =
+            codigosPendientes.get(email);
+
+        if (
+            codigoGuardado != null
+            && codigoGuardado.equals(codigoIngresado)
+        ) {
+
             codigosPendientes.remove(email);
             return true;
         }
+
         return false;
     }
 }

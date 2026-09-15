@@ -11,18 +11,30 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/api/usuarios")
 @CrossOrigin(origins = "http://localhost:5173")
 public class UsuarioController {
 
+    private static final String USUARIO_NO_ENCONTRADO = "Usuario no encontrado.";
+    private static final String EMAIL = "email";
+    private static final String ROL_CLIENTE = "CLIENTE";
+    private static final String MENSAJE_ERROR_CORREO =
+            "El correo electrónico no está asociado a ninguna cuenta.";
+
+    private static final Pattern PATRON_SPAM_USUARIO =
+            Pattern.compile("(?i)(asf|asd|qwe|zxc|(.)\\2{2,})");
+
+    private static final Pattern PATRON_CORREO_REPETIDO =
+            Pattern.compile("(.)\\1{2,}");
+
     @Autowired
     private UsuarioRepository usuarioRepository;
 
     @Autowired
     private EmailService emailService;
-
 
     // =========================================================
     // OBTENER TODOS LOS USUARIOS
@@ -36,7 +48,6 @@ public class UsuarioController {
         return ResponseEntity.ok(usuarios);
     }
 
-
     // =========================================================
     // OBTENER USUARIO POR ID
     // =========================================================
@@ -48,12 +59,11 @@ public class UsuarioController {
 
         if (!usuarioOpt.isPresent()) {
             return ResponseEntity.status(404)
-                    .body("Usuario no encontrado.");
+                    .body(USUARIO_NO_ENCONTRADO);
         }
 
         return ResponseEntity.ok(usuarioOpt.get());
     }
-
 
     // =========================================================
     // REGISTRO - PASO 1
@@ -66,14 +76,11 @@ public class UsuarioController {
         if (
             usuario.getUsuario() == null ||
             usuario.getUsuario().length() < 4 ||
-            usuario.getUsuario().matches(
-                "(?i).*(asf|asd|qwe|zxc|\\b(.)\\1{2,}\\b).*"
-            )
+            PATRON_SPAM_USUARIO.matcher(usuario.getUsuario()).find()
         ) {
             return ResponseEntity.badRequest()
                     .body("El nombre de usuario no es válido o parece spam.");
         }
-
 
         // Validar Gmail
         if (
@@ -84,19 +91,17 @@ public class UsuarioController {
                     .body("El correo debe ser estrictamente una cuenta @gmail.com.");
         }
 
-
         String usernameEmail =
                 usuario.getEmail().toLowerCase().split("@")[0];
 
         if (
             usernameEmail.length() < 4 ||
             !usernameEmail.matches(".*[aeiouáéíóú].*") ||
-            usernameEmail.matches(".*(.)\\1{2,}.*")
+            PATRON_CORREO_REPETIDO.matcher(usernameEmail).find()
         ) {
             return ResponseEntity.badRequest()
                     .body("Por favor ingresa un correo de Gmail real y válido.");
         }
-
 
         // Validar teléfono colombiano
         if (
@@ -109,7 +114,6 @@ public class UsuarioController {
                     );
         }
 
-
         // Validar contraseña
         if (
             usuario.getPassword() == null ||
@@ -119,7 +123,6 @@ public class UsuarioController {
                     .body("La contraseña debe tener al menos 8 caracteres.");
         }
 
-
         // Verificar correo existente
         if (
             usuarioRepository.findByEmail(usuario.getEmail()).isPresent()
@@ -128,7 +131,6 @@ public class UsuarioController {
                     .body("El correo electrónico ya está registrado.");
         }
 
-
         // Enviar código
         emailService.enviarCodigoRegistro(usuario.getEmail());
 
@@ -136,7 +138,6 @@ public class UsuarioController {
                 "Código enviado al correo electrónico."
         );
     }
-
 
     // =========================================================
     // REGISTRO - PASO 2
@@ -147,12 +148,12 @@ public class UsuarioController {
             @RequestBody Map<String, Object> payload
     ) {
 
-        String email = (String) payload.get("email");
+        String email = (String) payload.get(EMAIL);
         String codigo = (String) payload.get("codigo");
 
+        @SuppressWarnings("unchecked")
         Map<String, String> userData =
                 (Map<String, String>) payload.get("usuarioData");
-
 
         if (emailService.validarCodigo(email, codigo)) {
 
@@ -169,8 +170,7 @@ public class UsuarioController {
             nuevoUsuario.setActivo(true);
 
             // Todo usuario nuevo inicia como CLIENTE
-            nuevoUsuario.setRol("CLIENTE");
-
+            nuevoUsuario.setRol(ROL_CLIENTE);
 
             Usuario guardado =
                     usuarioRepository.save(nuevoUsuario);
@@ -178,11 +178,9 @@ public class UsuarioController {
             return ResponseEntity.ok(guardado);
         }
 
-
         return ResponseEntity.status(400)
                 .body("Código de verificación incorrecto.");
     }
-
 
     // =========================================================
     // LOGIN
@@ -196,7 +194,6 @@ public class UsuarioController {
         Optional<Usuario> usuarioOpt =
                 usuarioRepository.findByEmail(loginRequest.getEmail());
 
-
         if (!usuarioOpt.isPresent()) {
 
             usuarioOpt =
@@ -205,11 +202,9 @@ public class UsuarioController {
                     );
         }
 
-
         if (usuarioOpt.isPresent()) {
 
             Usuario usuario = usuarioOpt.get();
-
 
             // Verificar contraseña
             if (
@@ -230,18 +225,15 @@ public class UsuarioController {
                             );
                 }
 
-
                 return ResponseEntity.ok(usuario);
             }
         }
-
 
         return ResponseEntity.status(401)
                 .body(
                     "Credenciales incorrectas (Usuario o contraseña inválidos)."
                 );
     }
-
 
     // =========================================================
     // RECUPERACIÓN DE CONTRASEÑA
@@ -252,8 +244,7 @@ public class UsuarioController {
             @RequestBody Map<String, String> request
     ) {
 
-        String email = request.get("email");
-
+        String email = request.get(EMAIL);
 
         if (email == null || email.isEmpty()) {
 
@@ -261,19 +252,14 @@ public class UsuarioController {
                     .body("El correo es obligatorio.");
         }
 
-
         Optional<Usuario> usuarioOpt =
                 usuarioRepository.findByEmail(email);
-
 
         if (!usuarioOpt.isPresent()) {
 
             return ResponseEntity.status(404)
-                    .body(
-                        "El correo electrónico no está asociado a ninguna cuenta."
-                    );
+                    .body(MENSAJE_ERROR_CORREO);
         }
-
 
         try {
 
@@ -298,7 +284,6 @@ public class UsuarioController {
         }
     }
 
-
     // =========================================================
     // ACTUALIZAR PASSWORD
     // =========================================================
@@ -308,10 +293,9 @@ public class UsuarioController {
             @RequestBody Map<String, String> request
     ) {
 
-        String email = request.get("email");
+        String email = request.get(EMAIL);
         String codigo = request.get("codigo");
         String nuevaPassword = request.get("nuevaPassword");
-
 
         if (
             nuevaPassword == null ||
@@ -324,10 +308,8 @@ public class UsuarioController {
                     );
         }
 
-
         boolean codigoValido =
                 emailService.validarCodigo(email, codigo);
-
 
         if (!codigoValido) {
 
@@ -337,24 +319,20 @@ public class UsuarioController {
                     );
         }
 
-
         Optional<Usuario> usuarioOpt =
                 usuarioRepository.findByEmail(email);
-
 
         if (!usuarioOpt.isPresent()) {
 
             return ResponseEntity.status(404)
-                    .body("Usuario no encontrado.");
+                    .body(USUARIO_NO_ENCONTRADO);
         }
-
 
         Usuario usuario = usuarioOpt.get();
 
         usuario.setPassword(nuevaPassword);
 
         usuarioRepository.save(usuario);
-
 
         return ResponseEntity.ok(
                 Map.of(
@@ -363,7 +341,6 @@ public class UsuarioController {
                 )
         );
     }
-
 
     // =========================================================
     // ACTUALIZAR PERFIL
@@ -378,16 +355,13 @@ public class UsuarioController {
         Optional<Usuario> usuarioOpt =
                 usuarioRepository.findById(id);
 
-
         if (!usuarioOpt.isPresent()) {
 
             return ResponseEntity.status(404)
-                    .body("Usuario no encontrado.");
+                    .body(USUARIO_NO_ENCONTRADO);
         }
 
-
         Usuario usuario = usuarioOpt.get();
-
 
         if (
             datosActualizados.getUsuario() != null &&
@@ -399,7 +373,6 @@ public class UsuarioController {
             );
         }
 
-
         if (
             datosActualizados.getEmail() != null &&
             !datosActualizados.getEmail().isBlank()
@@ -409,7 +382,6 @@ public class UsuarioController {
                     datosActualizados.getEmail()
             );
         }
-
 
         if (
             datosActualizados.getTelefono() != null &&
@@ -421,7 +393,6 @@ public class UsuarioController {
             );
         }
 
-
         if (datosActualizados.getFoto() != null) {
 
             usuario.setFoto(
@@ -429,14 +400,11 @@ public class UsuarioController {
             );
         }
 
-
         Usuario guardado =
                 usuarioRepository.save(usuario);
 
-
         return ResponseEntity.ok(guardado);
     }
-
 
     // =========================================================
     // ACTIVAR / INACTIVAR USUARIO
@@ -451,16 +419,13 @@ public class UsuarioController {
         Optional<Usuario> usuarioOpt =
                 usuarioRepository.findById(id);
 
-
         if (!usuarioOpt.isPresent()) {
 
             return ResponseEntity.status(404)
-                    .body("Usuario no encontrado.");
+                    .body(USUARIO_NO_ENCONTRADO);
         }
 
-
         Boolean activo = datos.get("activo");
-
 
         if (activo == null) {
 
@@ -470,7 +435,6 @@ public class UsuarioController {
                     );
         }
 
-
         Usuario usuario = usuarioOpt.get();
 
         usuario.setActivo(activo);
@@ -478,10 +442,8 @@ public class UsuarioController {
         Usuario guardado =
                 usuarioRepository.save(usuario);
 
-
         return ResponseEntity.ok(guardado);
     }
-
 
     // =========================================================
     // CAMBIAR ROL
@@ -496,16 +458,13 @@ public class UsuarioController {
         Optional<Usuario> usuarioOpt =
                 usuarioRepository.findById(id);
 
-
         if (!usuarioOpt.isPresent()) {
 
             return ResponseEntity.status(404)
-                    .body("Usuario no encontrado.");
+                    .body(USUARIO_NO_ENCONTRADO);
         }
 
-
         String nuevoRol = datos.get("rol");
-
 
         if (nuevoRol == null || nuevoRol.isBlank()) {
 
@@ -513,13 +472,11 @@ public class UsuarioController {
                     .body("Debes indicar un rol.");
         }
 
-
         nuevoRol = nuevoRol.toUpperCase();
-
 
         // Roles permitidos
         if (
-            !nuevoRol.equals("CLIENTE") &&
+            !nuevoRol.equals(ROL_CLIENTE) &&
             !nuevoRol.equals("EMPLEADO") &&
             !nuevoRol.equals("ADMIN")
         ) {
@@ -530,14 +487,12 @@ public class UsuarioController {
                     );
         }
 
-
         Usuario usuario = usuarioOpt.get();
 
         usuario.setRol(nuevoRol);
 
         Usuario guardado =
                 usuarioRepository.save(usuario);
-
 
         return ResponseEntity.ok(guardado);
     }

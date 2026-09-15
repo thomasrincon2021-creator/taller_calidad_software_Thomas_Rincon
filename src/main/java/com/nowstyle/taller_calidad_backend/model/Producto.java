@@ -11,45 +11,87 @@ public class Producto {
     private Long id;
 
     private String nombre;
-    
+
     @Column(length = 500)
     private String descripcion;
-    
+
     private String categoria;
     private String color;
     private Double precio;
 
     @Column(columnDefinition = "TEXT")
-    private String tallasStock; 
-    
+    private String tallasStock;
+
     @Lob
     @Column(columnDefinition = "LONGTEXT")
     private String imagen;
 
-    public Producto() {}
+    public Producto() {
+        // Constructor vacío requerido por JPA/Hibernate para crear la entidad.
+    }
 
     // Getters y Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getNombre() { return nombre; }
-    public void setNombre(String nombre) { this.nombre = nombre; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getDescripcion() { return descripcion; }
-    public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
+    public String getNombre() {
+        return nombre;
+    }
 
-    public String getCategoria() { return categoria; }
-    public void setCategoria(String categoria) { this.categoria = categoria; }
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
+    }
 
-    public String getColor() { return color; }
-    public void setColor(String color) { this.color = color; }
+    public String getDescripcion() {
+        return descripcion;
+    }
 
-    public Double getPrecio() { return precio; }
-    public void setPrecio(Double precio) { this.precio = precio; }
+    public void setDescripcion(String descripcion) {
+        this.descripcion = descripcion;
+    }
 
-    public String getTallasStock() { return tallasStock; }
-    public void setTallasStock(String tallasStock) { this.tallasStock = tallasStock; }
+    public String getCategoria() {
+        return categoria;
+    }
 
-    public String getImagen() { return imagen; }
-    public void setImagen(String imagen) { this.imagen = imagen; }
+    public void setCategoria(String categoria) {
+        this.categoria = categoria;
+    }
+
+    public String getColor() {
+        return color;
+    }
+
+    public void setColor(String color) {
+        this.color = color;
+    }
+
+    public Double getPrecio() {
+        return precio;
+    }
+
+    public void setPrecio(Double precio) {
+        this.precio = precio;
+    }
+
+    public String getTallasStock() {
+        return tallasStock;
+    }
+
+    public void setTallasStock(String tallasStock) {
+        this.tallasStock = tallasStock;
+    }
+
+    public String getImagen() {
+        return imagen;
+    }
+
+    public void setImagen(String imagen) {
+        this.imagen = imagen;
+    }
 }

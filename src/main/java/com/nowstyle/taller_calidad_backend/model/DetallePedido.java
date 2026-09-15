@@ -25,39 +25,96 @@ public class DetallePedido {
     @Column(columnDefinition = "LONGTEXT")
     private String personalizacion;
 
-    public DetallePedido() {}
+    public DetallePedido() {
+        // Constructor vacío requerido por JPA/Hibernate para crear la entidad.
+    }
 
     // Getters y Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public Long getProductoId() { return productoId; }
-    public void setProductoId(Long productoId) { this.productoId = productoId; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getNombre() { return nombre; }
-    public void setNombre(String nombre) { this.nombre = nombre; }
+    public Long getProductoId() {
+        return productoId;
+    }
 
-    public Integer getCantidad() { return cantidad; }
-    public void setCantidad(Integer cantidad) { this.cantidad = cantidad; }
+    public void setProductoId(Long productoId) {
+        this.productoId = productoId;
+    }
 
-    public String getTalla() { return talla; }
-    public void setTalla(String talla) { this.talla = talla; }
+    public String getNombre() {
+        return nombre;
+    }
 
-    public Double getPrecioUnitario() { return precioUnitario; }
-    public void setPrecioUnitario(Double precioUnitario) { this.precioUnitario = precioUnitario; }
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
+    }
 
-    public String getModelo3d() { return modelo3d; }
-    public void setModelo3d(String modelo3d) { this.modelo3d = modelo3d; }
+    public Integer getCantidad() {
+        return cantidad;
+    }
 
-    public String getColorHex() { return colorHex; }
-    public void setColorHex(String colorHex) { this.colorHex = colorHex; }
+    public void setCantidad(Integer cantidad) {
+        this.cantidad = cantidad;
+    }
 
-    public String getCategoria() { return categoria; }
-    public void setCategoria(String categoria) { this.categoria = categoria; }
+    public String getTalla() {
+        return talla;
+    }
 
-    public String getImagen() { return imagen; }
-    public void setImagen(String imagen) { this.imagen = imagen; }
+    public void setTalla(String talla) {
+        this.talla = talla;
+    }
 
-    public String getPersonalizacion() { return personalizacion; }
-    public void setPersonalizacion(String personalizacion) { this.personalizacion = personalizacion; }
+    public Double getPrecioUnitario() {
+        return precioUnitario;
+    }
+
+    public void setPrecioUnitario(Double precioUnitario) {
+        this.precioUnitario = precioUnitario;
+    }
+
+    public String getModelo3d() {
+        return modelo3d;
+    }
+
+    public void setModelo3d(String modelo3d) {
+        this.modelo3d = modelo3d;
+    }
+
+    public String getColorHex() {
+        return colorHex;
+    }
+
+    public void setColorHex(String colorHex) {
+        this.colorHex = colorHex;
+    }
+
+    public String getCategoria() {
+        return categoria;
+    }
+
+    public void setCategoria(String categoria) {
+        this.categoria = categoria;
+    }
+
+    public String getImagen() {
+        return imagen;
+    }
+
+    public void setImagen(String imagen) {
+        this.imagen = imagen;
+    }
+
+    public String getPersonalizacion() {
+        return personalizacion;
+    }
+
+    public void setPersonalizacion(String personalizacion) {
+        this.personalizacion = personalizacion;
+    }
 }

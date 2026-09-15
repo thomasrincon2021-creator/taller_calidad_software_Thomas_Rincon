@@ -2,6 +2,7 @@ package com.nowstyle.taller_calidad_backend.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Entity
 @Table(name = "mensajes_pedido")
@@ -21,20 +22,57 @@ public class MensajePedido {
     @Column(columnDefinition = "LONGTEXT")
     private String imagen;
 
-    private LocalDateTime fecha = LocalDateTime.now();
+    private LocalDateTime fecha = LocalDateTime.now(ZoneId.of("America/Bogota"));
 
-    public MensajePedido() {}
+    public MensajePedido() {
+        // Constructor vacío requerido por JPA/Hibernate para crear la entidad.
+    }
 
-    public Long getId() { return id; }
-    public Long getPedidoId() { return pedidoId; }
-    public void setPedidoId(Long pedidoId) { this.pedidoId = pedidoId; }
-    public String getAutorEmail() { return autorEmail; }
-    public void setAutorEmail(String autorEmail) { this.autorEmail = autorEmail; }
-    public String getRolAutor() { return rolAutor; }
-    public void setRolAutor(String rolAutor) { this.rolAutor = rolAutor; }
-    public String getMensaje() { return mensaje; }
-    public void setMensaje(String mensaje) { this.mensaje = mensaje; }
-    public String getImagen() { return imagen; }
-    public void setImagen(String imagen) { this.imagen = imagen; }
-    public LocalDateTime getFecha() { return fecha; }
+    public Long getId() {
+        return id;
+    }
+
+    public Long getPedidoId() {
+        return pedidoId;
+    }
+
+    public void setPedidoId(Long pedidoId) {
+        this.pedidoId = pedidoId;
+    }
+
+    public String getAutorEmail() {
+        return autorEmail;
+    }
+
+    public void setAutorEmail(String autorEmail) {
+        this.autorEmail = autorEmail;
+    }
+
+    public String getRolAutor() {
+        return rolAutor;
+    }
+
+    public void setRolAutor(String rolAutor) {
+        this.rolAutor = rolAutor;
+    }
+
+    public String getMensaje() {
+        return mensaje;
+    }
+
+    public void setMensaje(String mensaje) {
+        this.mensaje = mensaje;
+    }
+
+    public String getImagen() {
+        return imagen;
+    }
+
+    public void setImagen(String imagen) {
+        this.imagen = imagen;
+    }
+
+    public LocalDateTime getFecha() {
+    return fecha;
+}
 }

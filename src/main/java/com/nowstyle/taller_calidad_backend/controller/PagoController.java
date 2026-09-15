@@ -32,6 +32,9 @@ import com.nowstyle.taller_calidad_backend.repository.UsuarioRepository;
 @CrossOrigin(origins = "http://localhost:5173")
 public class PagoController {
 
+    private static final String TALLA_UNICA = "Única";
+    private static final String CAMPO_ERROR = "error";
+
     @Autowired
     private PedidoRepository pedidoRepository;
 
@@ -52,6 +55,7 @@ public class PagoController {
      * posteriormente el inventario.
      */
     private static class ItemStock {
+
         private Long productoId;
         private String talla;
         private Integer cantidad;
@@ -77,14 +81,6 @@ public class PagoController {
 
     /**
      * Convierte el campo tallasStock del producto a un mapa.
-     *
-     * Ejemplo:
-     * "S:10,M:15,L:20"
-     *
-     * se convierte en:
-     * S -> 10
-     * M -> 15
-     * L -> 20
      */
     private Map<String, Integer> obtenerStockPorTalla(String tallasStock) {
 
@@ -97,52 +93,65 @@ public class PagoController {
         String[] pares = tallasStock.split(",");
 
         for (String par : pares) {
-
-            String valor = par.trim();
-
-            if (valor.isEmpty()) {
-                continue;
-            }
-
-            String[] partes = valor.split(":", 2);
-
-            if (partes.length < 2) {
-                continue;
-            }
-
-            String talla = partes[0].trim();
-
-            if (talla.isEmpty()) {
-                continue;
-            }
-
-            try {
-
-                Integer stock = Integer.parseInt(partes[1].trim());
-
-                stockPorTalla.put(
-                    talla.toUpperCase(),
-                    stock
-                );
-
-            } catch (NumberFormatException e) {
-
-                throw new IllegalStateException(
-                    "El inventario del producto contiene un stock inválido para la talla "
-                    + talla + "."
-                );
-            }
+            procesarParStock(par, stockPorTalla);
         }
 
         return stockPorTalla;
     }
 
     /**
+     * Procesa un elemento individual del inventario por talla.
+     */
+    private void procesarParStock(
+        String par,
+        Map<String, Integer> stockPorTalla
+    ) {
+
+        String valor = par.trim();
+
+        if (valor.isEmpty()) {
+            return;
+        }
+
+        String[] partes = valor.split(":", 2);
+
+        if (partes.length < 2) {
+            return;
+        }
+
+        String talla = partes[0].trim();
+
+        if (talla.isEmpty()) {
+            return;
+        }
+
+        try {
+
+            Integer stock = Integer.parseInt(
+                partes[1].trim()
+            );
+
+            stockPorTalla.put(
+                talla.toUpperCase(),
+                stock
+            );
+
+        } catch (NumberFormatException e) {
+
+            throw new IllegalStateException(
+                "El inventario del producto contiene un stock inválido para la talla "
+                + talla + "."
+            );
+        }
+    }
+
+    /**
      * Convierte el mapa de stock nuevamente al formato:
-     *
      * S:10,M:15,L:20
      */
-    private String convertirStockAString(Map<String, Integer> stockPorTalla) {
+    private String convertirStockAString(
+        Map<String, Integer> stockPorTalla
+    ) {
 
         return stockPorTalla.entrySet()
             .stream()
@@ -153,14 +162,39 @@ public class PagoController {
 
     /**
      * Valida que un producto tenga suficiente inventario para una talla.
-     *
-     * IMPORTANTE:
-     * Este método NO modifica el stock.
-     * Solo valida.
      */
     private void validarStockProducto(
         Long productoId,
         String talla,
+        Integer cantidad
+    ) {
+
+        validarDatosStock(productoId, cantidad);
+
+        Producto producto = obtenerProducto(productoId);
+
+        Map<String, Integer> stockPorTalla =
+            obtenerStockPorTalla(producto.getTallasStock());
+
+        String tallaBuscada = normalizarTalla(talla);
+        String tallaNormalizada = tallaBuscada.toUpperCase();
+
+        Integer stockActual =
+            stockPorTalla.get(tallaNormalizada);
+
+        validarDisponibilidadStock(
+            stockActual,
+            tallaBuscada,
+            producto.getNombre(),
+            cantidad
+        );
+    }
+
+    /**
+     * Valida los datos básicos del producto del carrito.
+     */
+    private void validarDatosStock(
+        Long productoId,
         Integer cantidad
     ) {
 
@@ -175,6 +209,12 @@ public class PagoController {
                 "La cantidad del producto debe ser mayor que cero."
             );
         }
+    }
+
+    /**
+     * Obtiene un producto por su ID.
+     */
+    private Producto obtenerProducto(Long productoId) {
 
         Optional<Producto> productoOpt =
             productoRepository.findById(productoId);
@@ -185,34 +225,43 @@ public class PagoController {
             );
         }
 
-        Producto producto = productoOpt.get();
+        return productoOpt.get();
+    }
 
-        Map<String, Integer> stockPorTalla =
-            obtenerStockPorTalla(producto.getTallasStock());
+    /**
+     * Normaliza la talla recibida desde el carrito.
+     */
+    private String normalizarTalla(String talla) {
 
-        String tallaBuscada =
-            talla == null || talla.isBlank()
-                ? "Única"
-                : talla.trim();
+        if (talla == null || talla.isBlank()) {
+            return TALLA_UNICA;
+        }
 
-        String tallaNormalizada =
-            tallaBuscada.toUpperCase();
+        return talla.trim();
+    }
 
-        Integer stockActual =
-            stockPorTalla.get(tallaNormalizada);
+    /**
+     * Valida que exista suficiente inventario.
+     */
+    private void validarDisponibilidadStock(
+        Integer stockActual,
+        String talla,
+        String nombreProducto,
+        Integer cantidad
+    ) {
 
         if (stockActual == null) {
             throw new IllegalStateException(
-                "La talla " + tallaBuscada
+                "La talla " + talla
                 + " no está disponible en el inventario del producto "
-                + producto.getNombre() + "."
+                + nombreProducto + "."
             );
         }
 
         if (stockActual < cantidad) {
             throw new IllegalStateException(
                 "No hay suficiente stock para la talla "
-                + tallaBuscada
+                + talla
                 + ". Stock disponible: "
                 + stockActual
                 + ", cantidad solicitada: "
@@ -224,9 +273,6 @@ public class PagoController {
 
     /**
      * Descuenta el inventario de un producto.
-     *
-     * Este método se ejecuta SOLO después de haber validado
-     * todos los productos del carrito.
      */
     private void actualizarStockProducto(
         Long productoId,
@@ -234,44 +280,22 @@ public class PagoController {
         Integer cantidad
     ) {
 
-        Optional<Producto> productoOpt =
-            productoRepository.findById(productoId);
-
-        if (productoOpt.isEmpty()) {
-            throw new IllegalStateException(
-                "No se encontró el producto con ID " + productoId + "."
-            );
-        }
-
-        Producto producto = productoOpt.get();
+        Producto producto = obtenerProducto(productoId);
 
         Map<String, Integer> stockPorTalla =
             obtenerStockPorTalla(producto.getTallasStock());
 
-        String tallaBuscada =
-            talla == null || talla.isBlank()
-                ? "Única"
-                : talla.trim();
-
-        String tallaNormalizada =
-            tallaBuscada.toUpperCase();
+        String tallaBuscada = normalizarTalla(talla);
+        String tallaNormalizada = tallaBuscada.toUpperCase();
 
         Integer stockActual =
             stockPorTalla.get(tallaNormalizada);
 
-        if (stockActual == null) {
-            throw new IllegalStateException(
-                "La talla " + tallaBuscada
-                + " no está disponible en el inventario."
-            );
-        }
-
-        if (stockActual < cantidad) {
-            throw new IllegalStateException(
-                "No hay suficiente stock para la talla "
-                + tallaBuscada + "."
-            );
-        }
+        validarStockParaActualizar(
+            stockActual,
+            tallaBuscada,
+            cantidad
+        );
 
         int nuevoStock =
             stockActual - cantidad;
@@ -281,20 +305,469 @@ public class PagoController {
             nuevoStock
         );
 
-        String nuevoTallasStock =
-            convertirStockAString(stockPorTalla);
-
-        producto.setTallasStock(nuevoTallasStock);
+        producto.setTallasStock(
+            convertirStockAString(stockPorTalla)
+        );
 
         productoRepository.save(producto);
     }
 
     /**
-     * Crea el pedido y realiza el descuento de inventario.
-     *
-     * @Transactional permite que si algo falla durante el proceso,
-     * las modificaciones realizadas en la base de datos puedan revertirse.
+     * Valida el stock antes de realizar el descuento.
      */
+    private void validarStockParaActualizar(
+        Integer stockActual,
+        String talla,
+        Integer cantidad
+    ) {
+
+        if (stockActual == null) {
+            throw new IllegalStateException(
+                "La talla " + talla
+                + " no está disponible en el inventario."
+            );
+        }
+
+        if (stockActual < cantidad) {
+            throw new IllegalStateException(
+                "No hay suficiente stock para la talla "
+                + talla + "."
+            );
+        }
+    }
+
+    /**
+     * Obtiene un valor String del mapa de datos.
+     */
+    private String obtenerTexto(
+        Map<String, Object> datos,
+        String campo
+    ) {
+
+        Object valor = datos.get(campo);
+
+        if (valor == null) {
+            return "";
+        }
+
+        return String.valueOf(valor).trim();
+    }
+
+    /**
+     * Obtiene un valor numérico Double.
+     */
+    private Double obtenerDouble(
+        Map<String, Object> datos,
+        String campo
+    ) {
+
+        Object valor = datos.get(campo);
+
+        if (valor instanceof Number number) {
+            return number.doubleValue();
+        }
+
+        return 0d;
+    }
+
+    /**
+     * Obtiene un valor numérico Long.
+     */
+    private Long obtenerLong(
+        Map<String, Object> datos,
+        String campo
+    ) {
+
+        Object valor = datos.get(campo);
+
+        if (valor instanceof Number number) {
+            return number.longValue();
+        }
+
+        return null;
+    }
+
+    /**
+     * Obtiene un valor numérico Integer.
+     */
+    private Integer obtenerInteger(
+        Map<String, Object> datos,
+        String campo
+    ) {
+
+        Object valor = datos.get(campo);
+
+        if (valor instanceof Number number) {
+            return number.intValue();
+        }
+
+        return 1;
+    }
+
+    /**
+     * Verifica que el carrito tenga elementos válidos.
+     */
+    private void validarCarrito(
+        Map<String, Object> ordenData
+    ) {
+
+        if (
+            ordenData == null
+            || ordenData.isEmpty()
+            || !(ordenData.get("items") instanceof List)
+            || ((List<?>) ordenData.get("items")).isEmpty()
+        ) {
+
+            throw new IllegalStateException(
+                "El carrito no puede estar vacío."
+            );
+        }
+    }
+
+    /**
+     * Obtiene la lista de elementos del carrito.
+     */
+    private List<?> obtenerItems(
+        Map<String, Object> ordenData
+    ) {
+
+        return (List<?>) ordenData.get("items");
+    }
+
+    /**
+     * Crea los detalles del pedido y prepara el inventario.
+     */
+    private List<DetallePedido> crearDetallesPedido(
+        List<?> itemsRaw,
+        List<ItemStock> itemsParaStock
+    ) {
+
+        List<DetallePedido> detalles =
+            new ArrayList<>();
+
+        for (Object itemRaw : itemsRaw) {
+
+            Map<String, Object> itemMap =
+                convertirItemAMapa(itemRaw);
+
+            Long productoId =
+                obtenerLong(itemMap, "productoId");
+
+            Integer cantidad =
+                obtenerInteger(itemMap, "cantidad");
+
+            String talla =
+                obtenerTalla(itemMap);
+
+            validarStockProducto(
+                productoId,
+                talla,
+                cantidad
+            );
+
+            itemsParaStock.add(
+                new ItemStock(
+                    productoId,
+                    talla,
+                    cantidad
+                )
+            );
+
+            detalles.add(
+                crearDetallePedido(
+                    itemMap,
+                    productoId,
+                    cantidad,
+                    talla
+                )
+            );
+        }
+
+        return detalles;
+    }
+
+    /**
+     * Convierte un elemento del carrito a un mapa.
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> convertirItemAMapa(
+        Object itemRaw
+    ) {
+
+        if (!(itemRaw instanceof Map)) {
+            throw new IllegalStateException(
+                "Uno de los elementos del carrito no tiene un formato válido."
+            );
+        }
+
+        return (Map<String, Object>) itemRaw;
+    }
+
+    /**
+     * Obtiene la talla del producto.
+     */
+    private String obtenerTalla(
+        Map<String, Object> itemMap
+    ) {
+
+        Object talla = itemMap.get("talla");
+
+        if (talla == null) {
+            return TALLA_UNICA;
+        }
+
+        return String.valueOf(talla);
+    }
+
+    /**
+     * Crea un detalle del pedido.
+     */
+    private DetallePedido crearDetallePedido(
+        Map<String, Object> itemMap,
+        Long productoId,
+        Integer cantidad,
+        String talla
+    ) {
+
+        DetallePedido detalle =
+            new DetallePedido();
+
+        detalle.setProductoId(productoId);
+
+        detalle.setNombre(
+            obtenerTexto(itemMap, "nombre")
+        );
+
+        detalle.setCantidad(cantidad);
+        detalle.setTalla(talla);
+
+        detalle.setPrecioUnitario(
+            obtenerDouble(
+                itemMap,
+                "precioUnitario"
+            )
+        );
+
+        detalle.setModelo3d(
+            obtenerTexto(itemMap, "modelo3d")
+        );
+
+        detalle.setColorHex(
+            obtenerTexto(itemMap, "colorHex")
+        );
+
+        detalle.setCategoria(
+            obtenerTexto(itemMap, "categoria")
+        );
+
+        detalle.setImagen(
+            obtenerTexto(itemMap, "imagen")
+        );
+
+        Object personalizacion =
+            itemMap.get("personalizacion");
+
+        detalle.setPersonalizacion(
+            personalizacion != null
+                ? String.valueOf(personalizacion)
+                : null
+        );
+
+        return detalle;
+    }
+
+    /**
+     * Actualiza el inventario de todos los productos del carrito.
+     */
+    private void actualizarInventario(
+        List<ItemStock> itemsParaStock
+    ) {
+
+        for (ItemStock item : itemsParaStock) {
+
+            actualizarStockProducto(
+                item.getProductoId(),
+                item.getTalla(),
+                item.getCantidad()
+            );
+        }
+    }
+
+    /**
+     * Crea y guarda el pedido.
+     */
+    private Pedido guardarPedido(
+        String usuarioEmail,
+        String direccionEnvio,
+        String ciudadEnvio,
+        Double subtotal,
+        Double descuentoAplicado,
+        Double costoEnvio,
+        Double totalFinal,
+        List<DetallePedido> detalles
+    ) {
+
+        Pedido pedido =
+            new Pedido();
+
+        pedido.setUsuarioEmail(usuarioEmail);
+        pedido.setDireccionEnvio(direccionEnvio);
+        pedido.setCiudadEnvio(ciudadEnvio);
+        pedido.setSubtotal(subtotal);
+        pedido.setDescuento(descuentoAplicado);
+        pedido.setCostoEnvio(costoEnvio);
+        pedido.setTotal(totalFinal);
+        pedido.setEstado("PENDIENTE");
+        pedido.setItems(detalles);
+
+        return pedidoRepository.save(pedido);
+    }
+
+    /**
+     * Guarda los mensajes relacionados con la venta.
+     */
+    private void guardarMensajesVenta(
+        Pedido pedido,
+        String usuarioEmail,
+        String mensajePedido
+    ) {
+
+        if (!mensajePedido.isBlank()) {
+
+            MensajePedido mensajeCliente =
+                new MensajePedido();
+
+            mensajeCliente.setPedidoId(pedido.getId());
+            mensajeCliente.setAutorEmail(usuarioEmail);
+            mensajeCliente.setRolAutor("CLIENTE");
+            mensajeCliente.setMensaje(
+                mensajePedido.trim()
+            );
+
+            mensajePedidoRepository.save(
+                mensajeCliente
+            );
+        }
+
+        MensajePedido avisoVenta =
+            new MensajePedido();
+
+        avisoVenta.setPedidoId(pedido.getId());
+        avisoVenta.setAutorEmail("sistema@nowstyle.com");
+        avisoVenta.setRolAutor("SISTEMA");
+        avisoVenta.setMensaje(
+            "Nueva venta registrada. Pedido listo para revisar."
+        );
+
+        mensajePedidoRepository.save(avisoVenta);
+    }
+
+    /**
+     * Guarda la confirmación de pago aprobado.
+     */
+    private void guardarConfirmacionPago(
+        Pedido pedido
+    ) {
+
+        MensajePedido confirmacion =
+            new MensajePedido();
+
+        confirmacion.setPedidoId(pedido.getId());
+        confirmacion.setAutorEmail("sistema@nowstyle.com");
+        confirmacion.setRolAutor("SISTEMA");
+        confirmacion.setMensaje(
+            "Pago simulado aprobado. El empleado ya puede revisar tu pedido."
+        );
+
+        mensajePedidoRepository.save(confirmacion);
+    }
+
+    /**
+     * Desactiva el cupón de primera compra utilizado.
+     */
+    private void actualizarCuponUsuario(
+        Optional<Usuario> usuarioOpt,
+        boolean usaCuponPrimeraCompra
+    ) {
+
+        if (
+            usaCuponPrimeraCompra
+            && usuarioOpt.isPresent()
+        ) {
+
+            usuarioOpt.get()
+                .setCuponPrimeraCompra(false);
+
+            usuarioRepository.save(
+                usuarioOpt.get()
+            );
+        }
+    }
+
+    /**
+     * Crea la respuesta final.
+     */
+    private Map<String, Object> crearRespuesta(
+        Pedido pedido
+    ) {
+
+        Map<String, Object> respuesta =
+            new HashMap<>();
+
+        respuesta.put(
+            "simulado",
+            true
+        );
+
+        respuesta.put(
+            "pedidoId",
+            pedido.getId()
+        );
+
+        respuesta.put(
+            "mensaje",
+            "Pago simulado aprobado correctamente."
+        );
+
+        return respuesta;
+    }
+
+    /**
+     * Crea la respuesta de error de validación.
+     */
+    private ResponseEntity<?> respuestaErrorValidacion(
+        IllegalStateException e
+    ) {
+
+        return ResponseEntity.badRequest().body(
+            Map.of(
+                CAMPO_ERROR,
+                e.getMessage() != null
+                    ? e.getMessage()
+                    : "Error de validación."
+            )
+        );
+    }
+
+    /**
+     * Crea la respuesta de error interno.
+     */
+    private ResponseEntity<?> respuestaErrorInterno(
+        Exception e
+    ) {
+
+        return ResponseEntity.internalServerError().body(
+            Map.of(
+                CAMPO_ERROR,
+                "No se pudo crear la preferencia de pago.",
+                "details",
+                e.getMessage() != null
+                    ? e.getMessage()
+                    : "Error desconocido"
+            )
+        );
+    }
+
     @PostMapping("/crear-preferencia")
     @Transactional
     public ResponseEntity<?> crearPreferencia(
@@ -303,90 +776,66 @@ public class PagoController {
 
         try {
 
-            // =========================================================
-            // 1. VALIDAR CARRITO
-            // =========================================================
-
-            if (
-                ordenData == null
-                || ordenData.isEmpty()
-                || !(ordenData.get("items") instanceof List)
-                || ((List<?>) ordenData.get("items")).isEmpty()
-            ) {
-
-                return ResponseEntity.badRequest().body(
-                    Map.of(
-                        "error",
-                        "El carrito no puede estar vacío."
-                    )
-                );
-            }
-
-            // =========================================================
-            // 2. OBTENER DATOS GENERALES DEL PEDIDO
-            // =========================================================
+            validarCarrito(ordenData);
 
             String usuarioEmail =
-                ordenData.get("usuarioEmail") != null
-                    ? String.valueOf(
-                        ordenData.get("usuarioEmail")
-                    ).trim()
-                    : "";
+                obtenerTexto(
+                    ordenData,
+                    "usuarioEmail"
+                );
 
             String direccionEnvio =
-                ordenData.get("direccionEnvio") != null
-                    ? String.valueOf(
-                        ordenData.get("direccionEnvio")
-                    ).trim()
-                    : "";
+                obtenerTexto(
+                    ordenData,
+                    "direccionEnvio"
+                );
 
             String ciudadEnvio =
-                ordenData.get("ciudadEnvio") != null
-                    ? String.valueOf(
-                        ordenData.get("ciudadEnvio")
-                    ).trim()
-                    : "";
+                obtenerTexto(
+                    ordenData,
+                    "ciudadEnvio"
+                );
 
             String cupon =
-                ordenData.get("cupon") != null
-                    ? String.valueOf(
-                        ordenData.get("cupon")
-                    ).trim()
-                    : "";
+                obtenerTexto(
+                    ordenData,
+                    "cupon"
+                );
 
             String mensajePedido =
-                ordenData.get("mensajePedido") != null
-                    ? String.valueOf(
-                        ordenData.get("mensajePedido")
-                    ).trim()
-                    : "";
+                obtenerTexto(
+                    ordenData,
+                    "mensajePedido"
+                );
 
             Double subtotal =
-                ordenData.get("subtotal") instanceof Number
-                    ? ((Number) ordenData.get("subtotal")).doubleValue()
-                    : 0d;
+                obtenerDouble(
+                    ordenData,
+                    "subtotal"
+                );
 
             Double descuento =
-                ordenData.get("descuento") instanceof Number
-                    ? ((Number) ordenData.get("descuento")).doubleValue()
-                    : 0d;
+                obtenerDouble(
+                    ordenData,
+                    "descuento"
+                );
 
             Double costoEnvio =
-                ordenData.get("costoEnvio") instanceof Number
-                    ? ((Number) ordenData.get("costoEnvio")).doubleValue()
-                    : 0d;
+                obtenerDouble(
+                    ordenData,
+                    "costoEnvio"
+                );
 
             Double total =
-                ordenData.get("total") instanceof Number
-                    ? ((Number) ordenData.get("total")).doubleValue()
-                    : 0d;
-
-            // =========================================================
-            // 3. VALIDAR USUARIO Y CUPÓN
-            // =========================================================
+                obtenerDouble(
+                    ordenData,
+                    "total"
+                );
 
             Optional<Usuario> usuarioOpt =
-                usuarioRepository.findByEmail(usuarioEmail);
+                usuarioRepository.findByEmail(
+                    usuarioEmail
+                );
 
             boolean usaCuponPrimeraCompra =
                 usuarioOpt.isPresent()
@@ -405,367 +854,64 @@ public class PagoController {
                     ? subtotal - descuentoAplicado + costoEnvio
                     : total;
 
-            // =========================================================
-            // 4. OBTENER ITEMS DEL CARRITO
-            // =========================================================
-
             List<?> itemsRaw =
-                (List<?>) ordenData.get("items");
-
-            List<DetallePedido> detalles =
-                new ArrayList<>();
+                obtenerItems(ordenData);
 
             List<ItemStock> itemsParaStock =
                 new ArrayList<>();
 
-            // =========================================================
-            // 5. PRIMERA PASADA:
-            // CREAR DETALLES Y VALIDAR TODO EL STOCK
-            // =========================================================
-
-            for (Object itemRaw : itemsRaw) {
-
-                if (!(itemRaw instanceof Map)) {
-
-                    throw new IllegalStateException(
-                        "Uno de los elementos del carrito no tiene un formato válido."
-                    );
-                }
-
-                @SuppressWarnings("unchecked")
-                Map<String, Object> itemMap =
-                    (Map<String, Object>) itemRaw;
-
-                Long productoId =
-                    itemMap.get("productoId") instanceof Number
-                        ? ((Number) itemMap.get("productoId")).longValue()
-                        : null;
-
-                Integer cantidad =
-                    itemMap.get("cantidad") instanceof Number
-                        ? ((Number) itemMap.get("cantidad")).intValue()
-                        : 1;
-
-                String talla =
-                    itemMap.get("talla") != null
-                        ? String.valueOf(
-                            itemMap.get("talla")
-                        )
-                        : "Única";
-
-                // ---------------------------------------------
-                // Validar producto y stock
-                // ---------------------------------------------
-
-                validarStockProducto(
-                    productoId,
-                    talla,
-                    cantidad
+            List<DetallePedido> detalles =
+                crearDetallesPedido(
+                    itemsRaw,
+                    itemsParaStock
                 );
 
-                itemsParaStock.add(
-                    new ItemStock(
-                        productoId,
-                        talla,
-                        cantidad
-                    )
-                );
-
-                // ---------------------------------------------
-                // Crear detalle del pedido
-                // ---------------------------------------------
-
-                DetallePedido detalle =
-                    new DetallePedido();
-
-                detalle.setProductoId(productoId);
-
-                detalle.setNombre(
-                    itemMap.get("nombre") != null
-                        ? String.valueOf(
-                            itemMap.get("nombre")
-                        )
-                        : ""
-                );
-
-                detalle.setCantidad(cantidad);
-
-                detalle.setTalla(talla);
-
-                detalle.setPrecioUnitario(
-                    itemMap.get("precioUnitario") instanceof Number
-                        ? ((Number) itemMap.get("precioUnitario")).doubleValue()
-                        : 0d
-                );
-
-                detalle.setModelo3d(
-                    itemMap.get("modelo3d") != null
-                        ? String.valueOf(
-                            itemMap.get("modelo3d")
-                        )
-                        : ""
-                );
-
-                detalle.setColorHex(
-                    itemMap.get("colorHex") != null
-                        ? String.valueOf(
-                            itemMap.get("colorHex")
-                        )
-                        : ""
-                );
-
-                detalle.setCategoria(
-                    itemMap.get("categoria") != null
-                        ? String.valueOf(
-                            itemMap.get("categoria")
-                        )
-                        : ""
-                );
-
-                detalle.setImagen(
-                    itemMap.get("imagen") != null
-                        ? String.valueOf(
-                            itemMap.get("imagen")
-                        )
-                        : ""
-                );
-
-                detalle.setPersonalizacion(
-                    itemMap.get("personalizacion") != null
-                        ? String.valueOf(
-                            itemMap.get("personalizacion")
-                        )
-                        : null
-                );
-
-                detalles.add(detalle);
-            }
-
-            // =========================================================
-            // 6. SEGUNDA PASADA:
-            // DESCONTAR STOCK
-            // =========================================================
-
-            for (ItemStock item : itemsParaStock) {
-
-                actualizarStockProducto(
-                    item.getProductoId(),
-                    item.getTalla(),
-                    item.getCantidad()
-                );
-            }
-
-            // =========================================================
-            // 7. CREAR PEDIDO
-            // =========================================================
+            actualizarInventario(
+                itemsParaStock
+            );
 
             Pedido pedido =
-                new Pedido();
-
-            pedido.setUsuarioEmail(
-                usuarioEmail
-            );
-
-            pedido.setDireccionEnvio(
-                direccionEnvio
-            );
-
-            pedido.setCiudadEnvio(
-                ciudadEnvio
-            );
-
-            pedido.setSubtotal(
-                subtotal
-            );
-
-            pedido.setDescuento(
-                descuentoAplicado
-            );
-
-            pedido.setCostoEnvio(
-                costoEnvio
-            );
-
-            pedido.setTotal(
-                totalFinal
-            );
-
-            pedido.setEstado(
-                "PENDIENTE"
-            );
-
-            pedido.setItems(
-                detalles
-            );
-
-            pedido =
-                pedidoRepository.save(pedido);
-
-            // =========================================================
-            // 8. MENSAJE DEL CLIENTE
-            // =========================================================
-
-            if (!mensajePedido.isBlank()) {
-
-                MensajePedido mensajeCliente =
-                    new MensajePedido();
-
-                mensajeCliente.setPedidoId(
-                    pedido.getId()
+                guardarPedido(
+                    usuarioEmail,
+                    direccionEnvio,
+                    ciudadEnvio,
+                    subtotal,
+                    descuentoAplicado,
+                    costoEnvio,
+                    totalFinal,
+                    detalles
                 );
 
-                mensajeCliente.setAutorEmail(
-                    usuarioEmail
-                );
-
-                mensajeCliente.setRolAutor(
-                    "CLIENTE"
-                );
-
-                mensajeCliente.setMensaje(
-                    mensajePedido.trim()
-                );
-
-                mensajePedidoRepository.save(
-                    mensajeCliente
-                );
-            }
-
-            // =========================================================
-            // 9. AVISO DE NUEVA VENTA
-            // =========================================================
-
-            MensajePedido avisoVenta =
-                new MensajePedido();
-
-            avisoVenta.setPedidoId(
-                pedido.getId()
+            guardarMensajesVenta(
+                pedido,
+                usuarioEmail,
+                mensajePedido
             );
 
-            avisoVenta.setAutorEmail(
-                "sistema@nowstyle.com"
-            );
+            pedido.setEstado("APROBADO");
 
-            avisoVenta.setRolAutor(
-                "SISTEMA"
-            );
+            pedidoRepository.save(pedido);
 
-            avisoVenta.setMensaje(
-                "Nueva venta registrada. Pedido listo para revisar."
-            );
-
-            mensajePedidoRepository.save(
-                avisoVenta
-            );
-
-            // =========================================================
-            // 10. APROBAR PEDIDO
-            // =========================================================
-
-            pedido.setEstado(
-                "APROBADO"
-            );
-
-            pedidoRepository.save(
+            guardarConfirmacionPago(
                 pedido
             );
 
-            // =========================================================
-            // 11. MENSAJE DE CONFIRMACIÓN
-            // =========================================================
-
-            MensajePedido confirmacion =
-                new MensajePedido();
-
-            confirmacion.setPedidoId(
-                pedido.getId()
-            );
-
-            confirmacion.setAutorEmail(
-                "sistema@nowstyle.com"
-            );
-
-            confirmacion.setRolAutor(
-                "SISTEMA"
-            );
-
-            confirmacion.setMensaje(
-                "Pago simulado aprobado. El empleado ya puede revisar tu pedido."
-            );
-
-            mensajePedidoRepository.save(
-                confirmacion
-            );
-
-            // =========================================================
-            // 12. DESACTIVAR CUPÓN DE PRIMERA COMPRA
-            // =========================================================
-
-            if (
+            actualizarCuponUsuario(
+                usuarioOpt,
                 usaCuponPrimeraCompra
-                && usuarioOpt.isPresent()
-            ) {
-
-                usuarioOpt.get()
-                    .setCuponPrimeraCompra(false);
-
-                usuarioRepository.save(
-                    usuarioOpt.get()
-                );
-            }
-
-            // =========================================================
-            // 13. RESPUESTA AL FRONTEND
-            // =========================================================
-
-            Map<String, Object> respuesta =
-                new HashMap<>();
-
-            respuesta.put(
-                "simulado",
-                true
-            );
-
-            respuesta.put(
-                "pedidoId",
-                pedido.getId()
-            );
-
-            respuesta.put(
-                "mensaje",
-                "Pago simulado aprobado correctamente."
             );
 
             return ResponseEntity.ok(
-                respuesta
+                crearRespuesta(pedido)
             );
 
         } catch (IllegalStateException e) {
 
-            // Errores de inventario o validación
-            return ResponseEntity.badRequest().body(
-                Map.of(
-                    "error",
-                    e.getMessage() != null
-                        ? e.getMessage()
-                        : "Error de validación."
-                )
-            );
+            return respuestaErrorValidacion(e);
 
         } catch (Exception e) {
 
-            // Cualquier otro error
-            return ResponseEntity.internalServerError().body(
-                Map.of(
-                    "error",
-                    "No se pudo crear la preferencia de pago.",
-                    "details",
-                    e.getMessage() != null
-                        ? e.getMessage()
-                        : "Error desconocido"
-                )
-            );
+            return respuestaErrorInterno(e);
         }
     }
 }
-

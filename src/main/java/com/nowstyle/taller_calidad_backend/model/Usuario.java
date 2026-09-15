@@ -6,6 +6,8 @@ import jakarta.persistence.*;
 @Table(name = "usuarios")
 public class Usuario {
 
+    private static final String ROL_CLIENTE = "CLIENTE";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -18,7 +20,7 @@ public class Usuario {
     private Boolean cuponPrimeraCompra = false;
 
     // Rol por defecto
-    private String rol = "CLIENTE";
+    private String rol = ROL_CLIENTE;
 
     // Estado del usuario
     // true = activo
@@ -31,7 +33,9 @@ public class Usuario {
     private String foto;
 
     // Constructor vacío
-    public Usuario() {}
+    public Usuario() {
+        // Constructor requerido por JPA/Hibernate.
+    }
 
     // Constructor sin rol
     public Usuario(String usuario, String email, String telefono, String password) {
@@ -39,7 +43,7 @@ public class Usuario {
         this.email = email;
         this.telefono = telefono;
         this.password = password;
-        this.rol = "CLIENTE";
+        this.rol = ROL_CLIENTE;
         this.activo = true;
     }
 
@@ -56,7 +60,7 @@ public class Usuario {
         this.email = email;
         this.telefono = telefono;
         this.password = password;
-        this.rol = (rol != null && !rol.isBlank()) ? rol : "CLIENTE";
+        this.rol = (rol != null && !rol.isBlank()) ? rol : ROL_CLIENTE;
         this.foto = foto;
         this.activo = true;
     }
