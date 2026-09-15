@@ -31,6 +31,6 @@ public class DetallePedido {
     private String personalizacion;
 
     public DetallePedido() {
-        // Constructor vacío requerido por JPA/Hibernate para crear la entidad.
+        // Constructor vacío requerido por JPA/Hibernate para crear la entidad..
     }
 }
