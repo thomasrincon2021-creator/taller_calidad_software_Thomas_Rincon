@@ -34,6 +34,7 @@ public class PagoController {
 
     private static final String TALLA_UNICA = "Única";
     private static final String CAMPO_ERROR = "error";
+    private static final String CAMPO_ITEMS = "items";
 
     @Autowired
     private PedidoRepository pedidoRepository;
@@ -76,6 +77,41 @@ public class PagoController {
 
         public Integer getCantidad() {
             return cantidad;
+        }
+    }
+
+    /**
+     * Agrupa los datos necesarios para crear un pedido.
+     */
+    private static class DatosPedido {
+
+        private String usuarioEmail;
+        private String direccionEnvio;
+        private String ciudadEnvio;
+        private Double subtotal;
+        private Double descuentoAplicado;
+        private Double costoEnvio;
+        private Double totalFinal;
+        private List<DetallePedido> detalles;
+
+        public DatosPedido(
+            String usuarioEmail,
+            String direccionEnvio,
+            String ciudadEnvio,
+            Double subtotal,
+            Double descuentoAplicado,
+            Double costoEnvio,
+            Double totalFinal,
+            List<DetallePedido> detalles
+        ) {
+            this.usuarioEmail = usuarioEmail;
+            this.direccionEnvio = direccionEnvio;
+            this.ciudadEnvio = ciudadEnvio;
+            this.subtotal = subtotal;
+            this.descuentoAplicado = descuentoAplicado;
+            this.costoEnvio = costoEnvio;
+            this.totalFinal = totalFinal;
+            this.detalles = detalles;
         }
     }
 
@@ -414,8 +450,8 @@ public class PagoController {
         if (
             ordenData == null
             || ordenData.isEmpty()
-            || !(ordenData.get("items") instanceof List)
-            || ((List<?>) ordenData.get("items")).isEmpty()
+            || !(ordenData.get(CAMPO_ITEMS) instanceof List)
+            || ((List<?>) ordenData.get(CAMPO_ITEMS)).isEmpty()
         ) {
 
             throw new IllegalStateException(
@@ -431,7 +467,7 @@ public class PagoController {
         Map<String, Object> ordenData
     ) {
 
-        return (List<?>) ordenData.get("items");
+        return (List<?>) ordenData.get(CAMPO_ITEMS);
     }
 
     /**
@@ -597,28 +633,21 @@ public class PagoController {
      * Crea y guarda el pedido.
      */
     private Pedido guardarPedido(
-        String usuarioEmail,
-        String direccionEnvio,
-        String ciudadEnvio,
-        Double subtotal,
-        Double descuentoAplicado,
-        Double costoEnvio,
-        Double totalFinal,
-        List<DetallePedido> detalles
+        DatosPedido datos
     ) {
 
         Pedido pedido =
             new Pedido();
 
-        pedido.setUsuarioEmail(usuarioEmail);
-        pedido.setDireccionEnvio(direccionEnvio);
-        pedido.setCiudadEnvio(ciudadEnvio);
-        pedido.setSubtotal(subtotal);
-        pedido.setDescuento(descuentoAplicado);
-        pedido.setCostoEnvio(costoEnvio);
-        pedido.setTotal(totalFinal);
+        pedido.setUsuarioEmail(datos.usuarioEmail);
+        pedido.setDireccionEnvio(datos.direccionEnvio);
+        pedido.setCiudadEnvio(datos.ciudadEnvio);
+        pedido.setSubtotal(datos.subtotal);
+        pedido.setDescuento(datos.descuentoAplicado);
+        pedido.setCostoEnvio(datos.costoEnvio);
+        pedido.setTotal(datos.totalFinal);
         pedido.setEstado("PENDIENTE");
-        pedido.setItems(detalles);
+        pedido.setItems(datos.detalles);
 
         return pedidoRepository.save(pedido);
     }
@@ -870,8 +899,8 @@ public class PagoController {
                 itemsParaStock
             );
 
-            Pedido pedido =
-                guardarPedido(
+            DatosPedido datosPedido =
+                new DatosPedido(
                     usuarioEmail,
                     direccionEnvio,
                     ciudadEnvio,
@@ -881,6 +910,9 @@ public class PagoController {
                     totalFinal,
                     detalles
                 );
+
+            Pedido pedido =
+                guardarPedido(datosPedido);
 
             guardarMensajesVenta(
                 pedido,
