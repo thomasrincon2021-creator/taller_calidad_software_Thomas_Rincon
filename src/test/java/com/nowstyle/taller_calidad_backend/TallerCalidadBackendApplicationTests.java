@@ -6,9 +6,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest
 class TallerCalidadBackendApplicationTests {
 
-	@Test
-	void contextLoads() {
-		// Este test valida que el contexto de la aplicación Spring Boot cargue correctamente sin errores.
-	}
-
+    @Test
+    void contextLoads() {
+        // Este test valida que el contexto de la aplicación Spring Boot
+        // cargue correctamente sin errores.
+    }
 }

@@ -244,7 +244,7 @@ public class UsuarioController {
 
         String numero = telefono.substring(5);
 
-        if (numero.length() != 8) {
+        if (numero.length() != 9) {
             return false;
         }
 
